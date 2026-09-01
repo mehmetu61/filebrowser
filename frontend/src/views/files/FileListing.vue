@@ -633,18 +633,19 @@ const openArchiveExtract = () => {
   });
 };
 
-const openArchiveCompress = async () => {
-  const paths = selectedItems.value.map(
-    (i) => i.path || route.path.replace(/\/$/, "") + "/" + i.name
-  );
-  const destDir = route.path;
-  try {
-    const archiveApi = await import("@/api/archive");
-    await archiveApi.compressItems(paths, destDir, "archive.zip");
-    fileStore.reload = true;
-  } catch (err) {
-    console.error("Compression failed", err);
-  }
+const openArchiveCompress = () => {
+  if (selectedItems.value.length === 0) return;
+  layoutStore.showHover({
+    prompt: "archiveCompress",
+    props: {
+      items: selectedItems.value.map((i) => ({
+        name: i.name,
+        path: i.path || route.path.replace(/\/$/, "") + "/" + i.name,
+        isDir: i.isDir,
+      })),
+      currentDir: route.path,
+    },
+  });
 };
 
 const openChecksum = () => {

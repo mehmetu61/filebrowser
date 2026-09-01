@@ -287,26 +287,50 @@ html[dir="rtl"] #listing {
   font-weight: bold;
 }
 
-#listing #multiple-selection {
+#multiple-selection {
   position: fixed;
-  bottom: -4em;
+  bottom: -5em;
   left: 0;
   z-index: 99999;
   width: 100%;
-  background-color: var(--blue);
-  height: 4em;
-  padding: 0.5em 0.5em 0.5em 1em;
+  background-color: var(--blue, #2563eb);
+  height: 3.8em;
+  padding: 0.5em 1.5em;
+  display: flex !important;
+  align-items: center;
   justify-content: space-between;
-  transition: 0.2s ease bottom;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.15);
+  transition: bottom 0.25s ease-in-out;
 }
 
-#listing #multiple-selection.active {
-  bottom: 0;
+#multiple-selection.active {
+  bottom: 0 !important;
 }
 
-#listing #multiple-selection p,
-#listing #multiple-selection i {
-  color: var(--iconSecondary);
+#multiple-selection p {
+  color: #fff !important;
+  font-weight: 500;
+  margin: 0;
+  font-size: 1em;
+}
+
+#multiple-selection i {
+  color: #fff !important;
+  cursor: pointer;
+}
+
+.item-checkbox {
+  margin-right: 8px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--blue, #2563eb);
+}
+
+.item-checkbox i {
+  font-size: 1.3em !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
 }
 
 /* Tag filter bar and indicators */

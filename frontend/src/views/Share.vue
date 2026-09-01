@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="share-page">
     <header-bar showMenu showLogo>
       <title />
 
@@ -11,15 +11,16 @@
         :counter="fileStore.selectedCount"
       />
       <button
-        v-if="isSingleFile()"
+        v-if="!req?.isDir || isSingleFile()"
         class="action copy-clipboard"
         :aria-label="t('buttons.copyDownloadLinkToClipboard')"
         :data-title="t('buttons.copyDownloadLinkToClipboard')"
-        @click="copyToClipboard(linkSelected())"
+        @click="copyToClipboard(linkSelected() || link)"
       >
         <i class="material-icons">content_paste</i>
       </button>
       <action
+        v-if="req?.isDir"
         icon="check_circle"
         :label="t('buttons.selectMultiple')"
         @action="toggleMultipleSelection"
@@ -28,8 +29,8 @@
 
     <breadcrumbs :base="'/share/' + hash" />
 
-    <div v-if="layoutStore.loading">
-      <h2 class="message delayed" style="padding-top: 3em !important">
+    <div v-if="layoutStore.loading" class="share-loading">
+      <h2 class="message delayed">
         <div class="spinner">
           <div class="bounce1"></div>
           <div class="bounce2"></div>
@@ -38,9 +39,10 @@
         <span>{{ t("files.loading") }}</span>
       </h2>
     </div>
-    <div v-else-if="error">
+
+    <div v-else-if="error" class="share-error">
       <div v-if="error.status === 401">
-        <div class="card floating" id="password" style="z-index: 9999999">
+        <div class="card floating" id="password">
           <div v-if="attemptedPasswordLogin" class="share__wrong__password">
             {{ t("login.wrongCredentials") }}
           </div>
@@ -60,7 +62,7 @@
           </div>
           <div class="card-action">
             <button
-              class="button button--flat"
+              class="button button--primary"
               @click="fetchData"
               :aria-label="t('buttons.submit')"
               :data-title="t('buttons.submit')"
@@ -73,176 +75,120 @@
       </div>
       <errors v-else :errorCode="error.status" />
     </div>
-    <div v-else-if="req !== null">
-      <div class="share">
-        <div
-          class="share__box share__box__info"
-          style="
-            position: -webkit-sticky;
-            position: sticky;
-            top: -20.6em;
-            z-index: 999;
-          "
-        >
-          <div class="share__box__header" style="height: 3em">
-            {{
-              req.isDir
-                ? t("download.downloadFolder")
-                : t("download.downloadFile")
-            }}
-          </div>
-          <div
-            v-if="!req.isDir"
-            class="share__box__element share__box__center share__box__icon"
-          >
-            <i class="material-icons">{{ icon }}</i>
-          </div>
-          <div class="share__box__element" style="height: 3em">
-            <strong>{{ $t("prompts.displayName") }}</strong> {{ req.name }}
-          </div>
-          <div v-if="!req.isDir" class="share__box__element" :title="modTime">
-            <strong>{{ $t("prompts.lastModified") }}:</strong> {{ humanTime }}
-          </div>
-          <div class="share__box__element" style="height: 3em">
-            <strong>{{ $t("prompts.size") }}:</strong> {{ humanSize }}
-          </div>
-          <div class="share__box__element share__box__center">
-            <a
-              target="_blank"
-              :href="link"
-              class="button button--flat"
-              style="height: 4em"
-            >
-              <div>
-                <i class="material-icons">file_download</i
-                >{{ t("buttons.download") }}
-              </div>
-            </a>
-            <a
-              target="_blank"
-              :href="inlineLink"
-              class="button button--flat"
-              v-if="!req.isDir"
-            >
-              <div>
-                <i class="material-icons">open_in_new</i
-                >{{ t("buttons.openFile") }}
-              </div>
-            </a>
-            <qrcode-vue
-              v-if="req.isDir"
-              :value="link"
-              :size="100"
-              level="M"
-            ></qrcode-vue>
-          </div>
-          <div v-if="!req.isDir" class="share__box__element share__box__center">
-            <qrcode-vue :value="link" :size="200" level="M"></qrcode-vue>
-          </div>
-          <div
-            v-if="req.isDir"
-            class="share__box__element share__box__header"
-            style="height: 3em"
-          >
-            {{ $t("sidebar.preview") }}
-          </div>
-          <div
-            v-if="req.isDir"
-            class="share__box__element share__box__center share__box__icon"
-            style="padding: 0em !important; height: 12em !important"
-          >
-            <a
-              target="_blank"
-              :href="raw"
-              class="button button--flat"
-              v-if="
-                !fileStore.multiple &&
-                fileStore.selectedCount === 1 &&
-                req.items[fileStore.selected[0]].type === 'image'
-              "
-              style="height: 12em; padding: 0; margin: 0"
-            >
-              <img
-                style="height: 12em"
-                :src="raw"
-                :alt="req.items[fileStore.selected[0]].name"
-              />
-            </a>
-            <div
-              v-else-if="
-                fileStore.multiple &&
-                fileStore.selectedCount === 1 &&
-                req.items[fileStore.selected[0]].type === 'audio'
-              "
-              style="height: 12em; padding-top: 1em; margin: 0"
-            >
-              <button
-                @click="play"
-                v-if="!tag"
-                style="
-                  font-size: 6em !important;
-                  border: 0px;
-                  outline: none;
-                  background: white;
-                "
-                class="material-icons"
-              >
-                play_circle_filled
-              </button>
-              <button
-                @click="play"
-                v-if="tag"
-                style="
-                  font-size: 6em !important;
-                  border: 0px;
-                  outline: none;
-                  background: white;
-                "
-                class="material-icons"
-              >
-                pause_circle_filled
-              </button>
-              <audio
-                id="myaudio"
-                ref="audio"
-                :src="raw"
-                controls
-                :autoplay="tag"
-              ></audio>
-            </div>
+
+    <div v-else-if="req !== null" class="share-content">
+      <!-- SINGLE FILE SHARE VIEW -->
+      <div v-if="!req.isDir" class="single-file-share">
+        <div class="single-file-card">
+          <!-- Thumbnail / Preview Area -->
+          <div class="single-file-preview">
+            <img
+              v-if="req.type === 'image'"
+              :src="raw"
+              :alt="req.name"
+              class="single-file-image"
+            />
             <video
-              v-else-if="
-                !fileStore.multiple &&
-                fileStore.selectedCount === 1 &&
-                req.items[fileStore.selected[0]].type === 'video'
-              "
-              style="height: 12em; padding: 0; margin: 0"
+              v-else-if="req.type === 'video'"
               :src="raw"
               controls
-            >
-              Sorry, your browser doesn't support embedded videos, but don't
-              worry, you can <a :href="raw">download it</a>
-              and watch it with your favorite video player!
-            </video>
-            <i
-              v-else-if="
-                !fileStore.multiple &&
-                fileStore.selectedCount === 1 &&
-                req.items[fileStore.selected[0]].isDir
-              "
-              class="material-icons"
-              >folder
-            </i>
-            <i v-else class="material-icons">call_to_action</i>
+              class="single-file-video"
+            ></video>
+            <audio
+              v-else-if="req.type === 'audio'"
+              :src="raw"
+              controls
+              class="single-file-audio"
+            ></audio>
+            <div v-else class="single-file-icon">
+              <i class="material-icons">{{ icon }}</i>
+            </div>
+          </div>
+
+          <!-- File Info & Actions -->
+          <div class="single-file-details">
+            <h1 class="single-file-title" :title="req.name">{{ req.name }}</h1>
+            <div class="single-file-meta">
+              <span class="meta-item">
+                <i class="material-icons">data_usage</i>
+                {{ humanSize }}
+              </span>
+              <span class="meta-item" :title="modTime">
+                <i class="material-icons">schedule</i>
+                {{ humanTime }}
+              </span>
+            </div>
+
+            <div class="single-file-actions">
+              <a :href="link" class="button button--primary download-btn" download>
+                <i class="material-icons">file_download</i>
+                <span>{{ t("buttons.download") }}</span>
+              </a>
+              <a
+                v-if="inlineLink"
+                :href="inlineLink"
+                target="_blank"
+                class="button button--flat open-btn"
+              >
+                <i class="material-icons">open_in_new</i>
+                <span>{{ t("buttons.openFile") }}</span>
+              </a>
+              <button
+                type="button"
+                class="button button--flat copy-btn"
+                @click="copyToClipboard(link)"
+              >
+                <i class="material-icons">link</i>
+                <span>Copy Link</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- QR Code section -->
+          <div class="single-file-qr">
+            <div class="qr-box">
+              <qrcode-vue :value="link" :size="120" level="M"></qrcode-vue>
+            </div>
+            <span class="qr-label">Scan to download on mobile</span>
           </div>
         </div>
+      </div>
+
+      <!-- FOLDER SHARE VIEW -->
+      <div v-else class="share">
+        <div class="share__box share__box__info">
+          <div class="share__box__header">
+            <i class="material-icons" style="font-size: 1.3em; vertical-align: middle; margin-right: 4px;">folder_shared</i>
+            {{ t("download.downloadFolder") }}
+          </div>
+
+          <div class="share__box__element">
+            <strong>{{ $t("prompts.displayName") }}:</strong> {{ req.name }}
+          </div>
+          <div class="share__box__element">
+            <strong>{{ $t("prompts.size") }}:</strong> {{ req.items.length }} Items
+          </div>
+
+          <div class="share__box__element share__box__center">
+            <a :href="link" class="button button--primary folder-download-btn">
+              <i class="material-icons">archive</i>
+              {{ t("buttons.download") }} (ZIP)
+            </a>
+          </div>
+
+          <div class="share__box__element share__box__center qr-folder-container">
+            <qrcode-vue :value="link" :size="110" level="M"></qrcode-vue>
+            <p class="qr-subtext">Scan for folder link</p>
+          </div>
+        </div>
+
         <div
           id="shareList"
-          v-if="req.isDir && req.items.length > 0"
+          v-if="req.items.length > 0"
           class="share__box share__box__items"
         >
-          <div class="share__box__header" v-if="req.isDir">
-            {{ t("files.files") }}
+          <div class="share__box__header">
+            {{ t("files.files") }} ({{ req.items.length }})
           </div>
           <div id="listing" class="list file-icons">
             <item
@@ -264,30 +210,13 @@
               @click="showLimit += 100"
             >
               <div>
-                <p class="name">+ {{ req.items.length - showLimit }}</p>
-              </div>
-            </div>
-
-            <div
-              :class="{ active: fileStore.multiple }"
-              id="multiple-selection"
-            >
-              <p>{{ t("files.multipleSelectionEnabled") }}</p>
-              <div
-                @click="() => (fileStore.multiple = false)"
-                tabindex="0"
-                role="button"
-                :data-title="t('buttons.clear')"
-                :aria-label="t('buttons.clear')"
-                class="action"
-              >
-                <i class="material-icons">clear</i>
+                <p class="name">+ {{ req.items.length - showLimit }} more</p>
               </div>
             </div>
           </div>
         </div>
         <div
-          v-else-if="req.isDir && req.items.length === 0"
+          v-else
           class="share__box share__box__items"
         >
           <h2 class="message">
@@ -295,6 +224,25 @@
             <span>{{ t("files.lonely") }}</span>
           </h2>
         </div>
+      </div>
+    </div>
+
+    <!-- Floating Multiple Selection Bar -->
+    <div
+      v-if="req?.isDir"
+      :class="{ active: fileStore.multiple }"
+      id="multiple-selection"
+    >
+      <p>{{ t("files.multipleSelectionEnabled") }}</p>
+      <div
+        @click="() => (fileStore.multiple = false)"
+        tabindex="0"
+        role="button"
+        :data-title="t('buttons.clear')"
+        :aria-label="t('buttons.clear')"
+        class="action"
+      >
+        <i class="material-icons">clear</i>
       </div>
     </div>
   </div>
@@ -326,8 +274,6 @@ const password = ref<string>("");
 const attemptedPasswordLogin = ref<boolean>(false);
 const hash = ref<string>("");
 const token = ref<string>("");
-const audio = ref<HTMLAudioElement>();
-const tag = ref<boolean>(false);
 
 const $showError = inject<IToastError>("$showError")!;
 const $showSuccess = inject<IToastSuccess>("$showSuccess")!;
@@ -345,8 +291,6 @@ watch(route, () => {
 
 const req = computed(() => fileStore.req);
 
-// Define computes
-
 const icon = computed(() => {
   if (req.value === null) return "insert_drive_file";
   if (req.value.isDir) return "folder";
@@ -357,25 +301,34 @@ const icon = computed(() => {
 });
 
 const link = computed(() => (req.value ? api.getDownloadURL(req.value) : ""));
+
 const raw = computed(() => {
-  if (!req.value || !req.value.items[fileStore.selected[0]]) return "";
-  return createURL(
-    `api/public/dl/${hash.value}${req.value.items[fileStore.selected[0]].path}`,
-    { token: token.value }
-  );
+  if (!req.value) return "";
+  if (!req.value.isDir) {
+    return createURL(`api/public/dl/${hash.value}`, { token: token.value });
+  }
+  if (req.value.items && req.value.items[fileStore.selected[0]]) {
+    return createURL(
+      `api/public/dl/${hash.value}${req.value.items[fileStore.selected[0]].path}`,
+      { token: token.value }
+    );
+  }
+  return "";
 });
+
 const inlineLink = computed(() =>
   req.value ? api.getDownloadURL(req.value, true) : ""
 );
+
 const humanSize = computed(() => {
   if (req.value) {
     return req.value.isDir
-      ? req.value.items.length
+      ? `${req.value.items.length} items`
       : filesize(req.value.size ?? 0);
-  } else {
-    return "";
   }
+  return "";
 });
+
 const humanTime = computed(() => dayjs(req.value?.modified).fromNow());
 const modTime = computed(() =>
   req.value
@@ -383,24 +336,14 @@ const modTime = computed(() =>
     : new Date().toLocaleString()
 );
 
-// Functions
 const base64 = (name: any) => Base64.encodeURI(name);
-const play = () => {
-  if (tag.value) {
-    audio.value?.pause();
-    tag.value = false;
-  } else {
-    audio.value?.play();
-    tag.value = true;
-  }
-};
+
 const fetchData = async () => {
   fileStore.reload = false;
   fileStore.selected = [];
   fileStore.multiple = false;
   layoutStore.closeHovers();
 
-  // Set loading to true and reset the error.
   layoutStore.loading = true;
   error.value = null;
   if (password.value !== "") {
@@ -414,7 +357,6 @@ const fetchData = async () => {
   try {
     const file = await api.fetch(url, password.value);
     file.hash = hash.value;
-
     token.value = file.token || "";
 
     fileStore.updateRequest(file);
@@ -430,8 +372,6 @@ const fetchData = async () => {
 
 const keyEvent = (event: KeyboardEvent) => {
   if (event.key === "Escape") {
-    // If we're on a listing, unselect all
-    // files and folders.
     if (fileStore.selectedCount > 0) {
       fileStore.selected = [];
     }
@@ -444,7 +384,7 @@ const toggleMultipleSelection = () => {
 
 const isSingleFile = () =>
   fileStore.selectedCount === 1 &&
-  !req.value?.items[fileStore.selected[0]].isDir;
+  !req.value?.items[fileStore.selected[0]]?.isDir;
 
 const download = () => {
   if (!req.value) return false;
@@ -466,7 +406,6 @@ const download = () => {
       layoutStore.closeHovers();
 
       const files: string[] = [];
-
       for (const i of fileStore.selected) {
         files.push(req.value.items[i].path);
       }
@@ -492,18 +431,14 @@ const linkSelected = () => {
 const copyToClipboard = (text: string) => {
   copy({ text }).then(
     () => {
-      // clipboard successfully set
       $showSuccess(t("success.linkCopied"));
     },
     () => {
-      // clipboard write failed
       copy({ text }, { permission: true }).then(
         () => {
-          // clipboard successfully set
           $showSuccess(t("success.linkCopied"));
         },
         (e) => {
-          // clipboard write failed
           $showError(e);
         }
       );
@@ -512,19 +447,193 @@ const copyToClipboard = (text: string) => {
 };
 
 onMounted(async () => {
-  // Created
   hash.value = route.params.path[0];
   window.addEventListener("keydown", keyEvent);
   await fetchData();
 });
 
 onBeforeUnmount(() => {
-  // Destroyed
   window.removeEventListener("keydown", keyEvent);
 });
 </script>
 
 <style scoped>
+.share-page {
+  min-height: 100vh;
+  background: var(--background, #0f172a);
+}
+
+/* SINGLE FILE HERO CARD */
+.single-file-share {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 3rem 1.5rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.single-file-card {
+  width: 100%;
+  background: var(--surfacePrimary, #1e293b);
+  border: 1px solid var(--borderPrimary, rgba(255, 255, 255, 0.08));
+  border-radius: 16px;
+  padding: 2.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1.5rem;
+}
+
+.single-file-preview {
+  width: 100%;
+  max-height: 320px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--surfaceSecondary, rgba(0, 0, 0, 0.2));
+  border-radius: 12px;
+  overflow: hidden;
+  padding: 1rem;
+}
+
+.single-file-image {
+  max-height: 300px;
+  max-width: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.single-file-video {
+  max-height: 300px;
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+.single-file-audio {
+  width: 100%;
+  max-width: 450px;
+}
+
+.single-file-icon i {
+  font-size: 6rem;
+  color: var(--blue, #3b82f6);
+}
+
+.single-file-details {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.single-file-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--textPrimary, #f8fafc);
+  word-break: break-word;
+  margin: 0;
+  max-width: 90%;
+}
+
+.single-file-meta {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.95rem;
+  color: var(--textSecondary, #94a3b8);
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.meta-item i {
+  font-size: 1.1rem;
+  opacity: 0.8;
+}
+
+.single-file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 0.5rem;
+}
+
+.download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.75rem 1.8rem;
+  font-size: 1rem;
+  font-weight: 600;
+  background: var(--blue, #2563eb);
+  color: #fff !important;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+  transition: all 0.2s ease;
+}
+
+.download-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+}
+
+.open-btn,
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.75rem 1.2rem;
+  font-size: 0.95rem;
+  border: 1px solid var(--borderPrimary, rgba(255, 255, 255, 0.15));
+  border-radius: 8px;
+}
+
+.single-file-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--borderPrimary, rgba(255, 255, 255, 0.08));
+}
+
+.qr-box {
+  background: #fff;
+  padding: 10px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.qr-label,
+.qr-subtext {
+  font-size: 0.8rem;
+  color: var(--textSecondary, #94a3b8);
+  margin: 0;
+}
+
+.folder-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.qr-folder-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
 #listing.list {
   height: auto;
 }

@@ -9,6 +9,13 @@ export interface ChecksumData {
 }
 
 export function getChecksum(url: string, signal?: AbortSignal) {
-  url = removePrefix(url);
+  if (url.startsWith("/files/")) {
+    url = url.substring(6);
+  } else if (url === "/files") {
+    url = "/";
+  }
+  if (!url.startsWith("/")) {
+    url = "/" + url;
+  }
   return fetchJSON<ChecksumData>(`/api/checksum${url}`, { signal });
 }

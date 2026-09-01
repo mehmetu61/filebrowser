@@ -23,6 +23,9 @@
     @contextmenu="contextMenu"
   >
     <div>
+      <span v-if="fileStore.multiple" class="item-checkbox" @click.stop="click($event)">
+        <i class="material-icons">{{ isSelected ? 'check_box' : 'check_box_outline_blank' }}</i>
+      </span>
       <img
         v-if="!readOnly && type === 'image' && isThumbsEnabled"
         v-lazy="thumbnailUrl"

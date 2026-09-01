@@ -38,6 +38,7 @@ import CurrentPassword from "./CurrentPassword.vue";
 import BatchRenameModal from "@/components/files/BatchRenameModal.vue";
 import ChecksumModal from "@/components/files/ChecksumModal.vue";
 import ArchiveExtractModal from "@/components/files/ArchiveExtractModal.vue";
+import ArchiveCompressModal from "@/components/files/ArchiveCompressModal.vue";
 
 const layoutStore = useLayoutStore();
 const fileStore = useFileStore();
@@ -52,6 +53,7 @@ const components = new Map<string, any>([
   ["batchRename", BatchRenameModal],
   ["checksum", ChecksumModal],
   ["archiveExtract", ArchiveExtractModal],
+  ["archiveCompress", ArchiveCompressModal],
   ["move", Move],
   ["copy", Copy],
   ["newFile", NewFile],
