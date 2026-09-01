@@ -40,7 +40,11 @@ func GenerateTOTPURI(secret, issuer, username string) string {
 
 // GenerateCode calculates the TOTP code for a given timestamp.
 func GenerateCode(secret string, t time.Time) (string, error) {
-	cleanSecret := strings.ToUpper(strings.TrimSpace(secret))
+	cleanSecret := strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(secret), " ", ""))
+	if cleanSecret == "" {
+		return "", fmt.Errorf("empty secret")
+	}
+
 	key, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(cleanSecret)
 	if err != nil {
 		// Try with standard padding
@@ -65,18 +69,23 @@ func GenerateCode(secret string, t time.Time) (string, error) {
 	return fmt.Sprintf("%06d", code), nil
 }
 
-// ValidateTOTP checks if the given passcode is valid within a window of [-1, +1] time steps.
+// ValidateTOTP checks if the given passcode is valid within a window of [-2, +2] time steps (+/- 60s for clock skew).
 func ValidateTOTP(passcode, secret string) bool {
 	cleanPasscode := strings.TrimSpace(passcode)
 	if len(cleanPasscode) != DefaultTOTPDigits {
 		return false
 	}
 
+	cleanSecret := strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(secret), " ", ""))
+	if cleanSecret == "" {
+		return false
+	}
+
 	now := time.Now()
-	// Check previous, current, and next time windows to account for clock skew
-	for _, offset := range []int64{-1, 0, 1} {
+	// Check previous, current, and next time windows (+/- 60 seconds) to account for clock skew
+	for _, offset := range []int64{-2, -1, 0, 1, 2} {
 		t := now.Add(time.Duration(offset*DefaultTOTPPeriod) * time.Second)
-		code, err := GenerateCode(secret, t)
+		code, err := GenerateCode(cleanSecret, t)
 		if err != nil {
 			continue
 		}

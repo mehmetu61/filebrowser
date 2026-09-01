@@ -73,11 +73,17 @@ func (a JSONAuth) Auth(r *http.Request, usr users.Store, _ *settings.Settings, s
 	}
 
 	if u.TOTPEnabled {
-		if cred.TOTPCode == "" {
-			return nil, fberrors.ErrTOTPRequired
-		}
-		if !ValidateTOTP(cred.TOTPCode, u.TOTPSecret) {
-			return nil, fberrors.ErrTOTPInvalid
+		if u.TOTPSecret == "" {
+			// If TOTP is enabled in DB but secret was missing (from legacy json:"-" tag), reset it to prevent lockout
+			u.TOTPEnabled = false
+			_ = usr.Update(u, "TOTPEnabled")
+		} else {
+			if cred.TOTPCode == "" {
+				return nil, fberrors.ErrTOTPRequired
+			}
+			if !ValidateTOTP(cred.TOTPCode, u.TOTPSecret) {
+				return nil, fberrors.ErrTOTPInvalid
+			}
 		}
 	}
 
