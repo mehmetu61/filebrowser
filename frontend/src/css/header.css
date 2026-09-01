@@ -6,11 +6,11 @@ header {
   position: fixed;
   top: 0;
   left: 0;
-  height: 4em;
+  height: 3.4em;
   width: 100%;
   padding: 0;
   display: flex;
-  padding: 0.5em 0.5em 0.5em 1em;
+  padding: 0.3em 0.8em;
   align-items: center;
 }
 
@@ -21,10 +21,11 @@ header > * {
 header title {
   display: block;
   flex: 1 1 auto;
-  padding: 0 1em;
+  padding: 0 0.8em;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 1.2em;
+  font-size: 1.05em;
+  font-weight: 600;
 }
 
 header .overlay {
@@ -39,11 +40,11 @@ header a:hover {
 
 header > div:first-child > .action,
 header img {
-  margin-right: 1em;
+  margin-right: 0.8em;
 }
 
 header img {
-  height: 2.5em;
+  height: 1.9em;
 }
 
 header .action span {

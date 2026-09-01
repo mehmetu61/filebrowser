@@ -18,16 +18,38 @@
 
       <div v-if="favoritesStore.favorites.length > 0" class="favorites-section">
         <div class="sidebar-heading">⭐ Favorites</div>
-        <button
+        <div
           v-for="fav in favoritesStore.favorites"
           :key="fav"
-          class="action fav-action"
-          @click="toPath('/files' + fav)"
-          :title="fav"
+          class="fav-item-row"
         >
-          <i class="material-icons">folder_special</i>
-          <span class="fav-name">{{ fav.split('/').filter(Boolean).pop() || '/' }}</span>
-        </button>
+          <button
+            class="action fav-action"
+            @click="toPath('/files' + fav)"
+            :title="fav"
+          >
+            <i class="material-icons">folder_special</i>
+            <span class="fav-name">{{ favoritesStore.getFavoriteName(fav) }}</span>
+          </button>
+          <div class="fav-actions-group">
+            <button
+              type="button"
+              class="fav-icon-btn"
+              title="Favorit umbenennen"
+              @click.stop="promptRenameFavorite(fav)"
+            >
+              <i class="material-icons">edit</i>
+            </button>
+            <button
+              type="button"
+              class="fav-icon-btn fav-remove"
+              title="Favorit entfernen"
+              @click.stop="favoritesStore.removeFavorite(fav)"
+            >
+              <i class="material-icons">close</i>
+            </button>
+          </div>
+        </div>
       </div>
 
       <div v-if="user.perm.create">
@@ -109,18 +131,7 @@
       {{ $t("sidebar.diskUsed", { used: usage.used, total: usage.total }) }}
     </div>
 
-    <p class="credits">
-      <span>
-        <span v-if="disableExternal">File Browser</span>
-        <a
-          v-else
-          rel="noopener noreferrer"
-          target="_blank"
-          href="https://github.com/filebrowser/filebrowser"
-          >File Browser</a
-        >
-        <span> {{ " " }} {{ version }}</span>
-      </span>
+    <p class="credits" style="justify-content: center; text-align: center;">
       <span>
         <a @click="help">{{ $t("sidebar.help") }}</a>
       </span>
@@ -220,6 +231,13 @@ export default {
       this.$router.push({ path: "/settings/global" });
       this.closeHovers();
     },
+    promptRenameFavorite(fav) {
+      const currentName = this.favoritesStore.getFavoriteName(fav);
+      const newName = window.prompt("Favoriten-Namen anpassen:", currentName);
+      if (newName !== null) {
+        this.favoritesStore.renameFavorite(fav, newName);
+      }
+    },
     help() {
       this.showHover("help");
     },
@@ -258,13 +276,64 @@ export default {
   opacity: 0.7;
 }
 
+.fav-item-row {
+  display: flex;
+  align-items: center;
+  position: relative;
+  transition: background 0.15s;
+}
+
+.fav-item-row:hover {
+  background: var(--hover, rgba(0, 0, 0, 0.04));
+}
+
 .fav-action {
   font-size: 0.9em;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
 }
 
 .fav-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.fav-actions-group {
+  display: flex;
+  align-items: center;
+  padding-right: 0.5em;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.fav-item-row:hover .fav-actions-group {
+  opacity: 1;
+}
+
+.fav-icon-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--action, #64748b);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fav-icon-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--blue, #2563eb);
+}
+
+.fav-icon-btn.fav-remove:hover {
+  color: var(--red, #ef4444);
+}
+
+.fav-icon-btn i {
+  font-size: 1.1em;
 }
 </style>
