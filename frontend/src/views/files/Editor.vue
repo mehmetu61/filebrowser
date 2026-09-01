@@ -103,7 +103,7 @@ import { useLayoutStore } from "@/stores/layout";
 import { getEditorTheme } from "@/utils/theme";
 import { marked } from "marked";
 import markedKatex from "marked-katex-extension";
-import { inject, onBeforeUnmount, onMounted, ref, watchEffect } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref, watchEffect } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { read, copy } from "@/utils/clipboard";
@@ -124,9 +124,10 @@ const fontSize = ref(parseInt(localStorage.getItem("editorFontSize") || "14"));
 
 const viewMode = ref<"edit" | "split" | "preview">("edit");
 const previewContent = ref("");
-const isMarkdownFile =
-  fileStore.req?.name.endsWith(".md") ||
-  fileStore.req?.name.endsWith(".markdown");
+const isMarkdownFile = computed(() => {
+  const name = fileStore.req?.name?.toLowerCase() || "";
+  return name.endsWith(".md") || name.endsWith(".markdown");
+});
 const katexOptions = {
   output: "mathml" as const,
   throwOnError: false,
@@ -150,7 +151,7 @@ const cycleViewMode = () => {
 };
 
 const updateMarkdownPreview = async () => {
-  if (!isMarkdownFile) return;
+  if (!isMarkdownFile.value) return;
   const val = editor.value?.getValue() || "";
   try {
     previewContent.value = DOMPurify.sanitize(await marked(val));
@@ -193,7 +194,7 @@ onMounted(() => {
   const fileContent = fileStore.req?.content || "";
 
   watchEffect(async () => {
-    if (isMarkdownFile && isPreview.value) {
+    if (isMarkdownFile.value && viewMode.value !== "edit") {
       const new_value = editor.value?.getValue() || "";
       try {
         previewContent.value = DOMPurify.sanitize(await marked(new_value));
@@ -277,7 +278,7 @@ const initEditor = (fileContent: string) => {
     }
   });
 
-  if (isMarkdownFile) {
+  if (isMarkdownFile.value) {
     updateMarkdownPreview();
   }
 };
@@ -361,10 +362,6 @@ const close = () => {
 const finishClose = () => {
   const uri = url.removeLastDir(route.path) + "/";
   router.push({ path: uri });
-};
-
-const preview = () => {
-  isPreview.value = !isPreview.value;
 };
 </script>
 
