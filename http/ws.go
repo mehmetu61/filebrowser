@@ -7,18 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
-
 	"github.com/filebrowser/filebrowser/v2/files"
 )
-
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true // Origin checked via auth token
-	},
-}
 
 type wsMessage struct {
 	Action string `json:"action"`
