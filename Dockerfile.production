@@ -13,16 +13,22 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-COPY --from=frontend-builder /src/frontend/dist /src/frontend/dist
-ARG TARGETOS TARGETARCH
+# Remove any leftover empty dist and copy fresh frontend assets with trailing slash
+RUN rm -rf frontend/dist && mkdir -p frontend/dist
+COPY --from=frontend-builder /src/frontend/dist/ ./frontend/dist/
+
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
 ARG VERSION=latest
 ARG COMMIT_SHA=""
+
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
+    -trimpath \
     -ldflags="-s -w -X 'github.com/filebrowser/filebrowser/v2/version.Version=${VERSION}' -X 'github.com/filebrowser/filebrowser/v2/version.CommitSHA=${COMMIT_SHA}'" \
     -o /bin/filebrowser .
 
 # 3. Stage: Fetch dependencies & certificates
-FROM alpine:3.23 AS fetcher
+FROM alpine:3.21 AS fetcher
 RUN apk update && \
     apk --no-cache add ca-certificates mailcap tini-static && \
     wget -O /JSON.sh https://raw.githubusercontent.com/dominictarr/JSON.sh/0d5e5c77365f63809bf6e77ef44a1f34b0e05840/JSON.sh
