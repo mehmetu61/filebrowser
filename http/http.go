@@ -54,6 +54,9 @@ func NewHandler(
 	api.Handle("/renew", monkey(renewHandler(tokenExpirationTime), ""))
 
 	users := api.PathPrefix("/users").Subrouter()
+	users.Handle("/2fa/generate", monkey(user2FAGenerateHandler, "")).Methods("POST")
+	users.Handle("/2fa/verify", monkey(user2FAVerifyHandler, "")).Methods("POST")
+	users.Handle("/2fa/disable", monkey(user2FADisableHandler, "")).Methods("POST")
 	users.Handle("", monkey(usersGetHandler, "")).Methods("GET")
 	users.Handle("", monkey(userPostHandler, "")).Methods("POST")
 	users.Handle("/{id:[0-9]+}", monkey(userPutHandler, "")).Methods("PUT")
@@ -88,6 +91,7 @@ func NewHandler(
 	api.PathPrefix("/command").Handler(monkey(commandsHandler, "/api/command")).Methods("GET")
 	api.PathPrefix("/search").Handler(monkey(searchHandler, "/api/search")).Methods("GET")
 	api.PathPrefix("/subtitle").Handler(monkey(subtitleHandler, "/api/subtitle")).Methods("GET")
+	api.Handle("/ws", monkey(wsHandler(), ""))
 
 	public := api.PathPrefix("/public").Subrouter()
 	public.PathPrefix("/dl").Handler(monkey(publicDlHandler, "/api/public/dl/")).Methods("GET")

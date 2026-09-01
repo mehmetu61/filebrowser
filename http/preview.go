@@ -8,12 +8,17 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"runtime"
 
 	"github.com/gorilla/mux"
+	"github.com/marusama/semaphore/v2"
 
 	"github.com/filebrowser/filebrowser/v2/files"
 	"github.com/filebrowser/filebrowser/v2/img"
 )
+
+// previewSemaphore limits concurrent thumbnail/image resizing to prevent CPU & memory saturation
+var previewSemaphore = semaphore.New(max(2, runtime.NumCPU()*2))
 
 /*
 ENUM(
@@ -114,6 +119,11 @@ func handleImagePreview(
 
 func createPreview(imgSvc ImgService, fileCache FileCache,
 	file *files.FileInfo, previewSize PreviewSize) ([]byte, error) {
+	if err := previewSemaphore.Acquire(context.Background(), 1); err != nil {
+		return nil, err
+	}
+	defer previewSemaphore.Release(1)
+
 	fd, err := file.Fs.Open(file.Path)
 	if err != nil {
 		return nil, err

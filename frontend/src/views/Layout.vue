@@ -18,6 +18,8 @@
     </main>
     <prompts></prompts>
     <upload-files></upload-files>
+    <audio-player></audio-player>
+    <command-palette></command-palette>
   </div>
 </template>
 
@@ -30,8 +32,10 @@ import Sidebar from "@/components/Sidebar.vue";
 import Prompts from "@/components/prompts/Prompts.vue";
 import Shell from "@/components/Shell.vue";
 import UploadFiles from "@/components/prompts/UploadFiles.vue";
+import AudioPlayer from "@/components/AudioPlayer.vue";
+import CommandPalette from "@/components/CommandPalette.vue";
 import { enableExec } from "@/utils/constants";
-import { computed, watch } from "vue";
+import { computed, onMounted, watch } from "vue";
 import { useRoute } from "vue-router";
 
 const layoutStore = useLayoutStore();
@@ -43,6 +47,10 @@ const route = useRoute();
 const sentPercent = computed(() =>
   ((uploadStore.sentBytes / uploadStore.totalBytes) * 100).toFixed(2)
 );
+
+onMounted(() => {
+  layoutStore.applyTheme();
+});
 
 watch(route, () => {
   fileStore.selected = [];

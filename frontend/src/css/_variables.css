@@ -56,3 +56,25 @@
   --dividerPrimary: rgba(30, 30, 30, 0.4);
   --dividerSecondary: rgba(30, 30, 30, 0.6);
 }
+
+:root.oled {
+  --input-red: rgb(115, 48, 45);
+  --input-green: rgb(20, 122, 65);
+
+  --action: rgb(255, 255, 255);
+
+  --background: #000000;
+  --surfacePrimary: #0a0a0a;
+  --surfaceSecondary: #1a1a1a;
+  --textPrimary: rgba(255, 255, 255, 0.7);
+  --textSecondary: rgba(255, 255, 255, 0.95);
+  --divider: rgba(255, 255, 255, 0.1);
+  --iconPrimary: rgb(255, 255, 255);
+  --iconSecondary: rgb(255, 255, 255);
+  --iconTertiary: rgb(255, 255, 255);
+  --hover: rgba(255, 255, 255, 0.12);
+  --borderPrimary: rgba(255, 255, 255, 0.08);
+  --borderSecondary: rgba(255, 255, 255, 0.2);
+  --dividerPrimary: rgba(20, 20, 20, 0.5);
+  --dividerSecondary: rgba(30, 30, 30, 0.8);
+}

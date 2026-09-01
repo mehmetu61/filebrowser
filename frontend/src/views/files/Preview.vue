@@ -108,14 +108,18 @@
           v-else-if="fileStore.req?.type == 'image'"
           :src="previewUrl"
         />
-        <audio
-          v-else-if="fileStore.req?.type == 'audio'"
-          ref="player"
-          :src="previewUrl"
-          controls
-          :autoplay="autoPlay"
-          @play="autoPlay = true"
-        ></audio>
+        <div v-else-if="fileStore.req?.type == 'audio'" style="display: flex; flex-direction: column; align-items: center; gap: 1em;">
+          <audio
+            ref="player"
+            :src="previewUrl"
+            controls
+            :autoplay="autoPlay"
+            @play="autoPlay = true"
+          ></audio>
+          <button class="button button--flat" @click="playInBackground">
+            <i class="material-icons" style="margin-right: 4px;">playlist_play</i> Play in Background Player
+          </button>
+        </div>
         <VideoPlayer
           v-else-if="fileStore.req?.type == 'video'"
           ref="player"
@@ -200,6 +204,19 @@ import { useRoute, useRouter } from "vue-router";
 import type { Rendition } from "epubjs";
 import { getTheme } from "@/utils/theme";
 import { useI18n } from "vue-i18n";
+import { useAudioStore } from "@/stores/audio";
+
+const audioStore = useAudioStore();
+
+const playInBackground = () => {
+  if (fileStore.req) {
+    audioStore.playTrack({
+      name: name.value,
+      url: previewUrl.value,
+      path: fileStore.req.path,
+    });
+  }
+};
 
 // CSV file size limit for preview (5MB)
 // Prevents browser memory issues with large files

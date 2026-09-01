@@ -1,17 +1,18 @@
 import { defineStore } from "pinia";
-// import { useAuthPreferencesStore } from "./auth-preferences";
-// import { useAuthEmailStore } from "./auth-email";
+
+export type ThemeMode = "system" | "light" | "dark" | "oled";
 
 export const useLayoutStore = defineStore("layout", {
-  // convert to a function
   state: (): {
     loading: boolean;
     prompts: PopupProps[];
     showShell: boolean | null;
+    theme: ThemeMode;
   } => ({
     loading: false,
     prompts: [],
     showShell: false,
+    theme: (localStorage.getItem("theme") as ThemeMode) || "system",
   }),
   getters: {
     currentPrompt(state) {
@@ -22,9 +23,38 @@ export const useLayoutStore = defineStore("layout", {
     currentPromptName(): string | null | undefined {
       return this.currentPrompt?.prompt;
     },
-    // user and jwt getter removed, no longer needed
   },
   actions: {
+    setTheme(theme: ThemeMode) {
+      this.theme = theme;
+      localStorage.setItem("theme", theme);
+      this.applyTheme();
+    },
+
+    toggleTheme() {
+      const nextTheme: Record<ThemeMode, ThemeMode> = {
+        system: "dark",
+        dark: "oled",
+        oled: "light",
+        light: "system",
+      };
+      this.setTheme(nextTheme[this.theme] || "dark");
+    },
+
+    applyTheme() {
+      const root = document.documentElement;
+      root.classList.remove("dark", "oled");
+
+      if (this.theme === "dark") {
+        root.classList.add("dark");
+      } else if (this.theme === "oled") {
+        root.classList.add("oled");
+      } else if (this.theme === "system") {
+        if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+          root.classList.add("dark");
+        }
+      }
+    },
     // no context as first argument, use `this` instead
     toggleShell() {
       this.showShell = !this.showShell;

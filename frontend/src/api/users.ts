@@ -53,3 +53,30 @@ export async function remove(
     }),
   });
 }
+
+export async function generate2FA() {
+  return fetchJSON<{ secret: string; uri: string }>(`/api/users/2fa/generate`, {
+    method: "POST",
+  });
+}
+
+export async function verify2FA(secret: string, code: string) {
+  return fetchJSON<{ success: boolean; totpEnabled: boolean }>(
+    `/api/users/2fa/verify`,
+    {
+      method: "POST",
+      body: JSON.stringify({ secret, code }),
+    }
+  );
+}
+
+export async function disable2FA(password: string) {
+  return fetchJSON<{ success: boolean; totpEnabled: boolean }>(
+    `/api/users/2fa/disable`,
+    {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    }
+  );
+}
+

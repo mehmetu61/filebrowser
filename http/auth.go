@@ -37,6 +37,8 @@ type userInfo struct {
 	DateFormat            bool              `json:"dateFormat"`
 	Username              string            `json:"username"`
 	AceEditorTheme        string            `json:"aceEditorTheme"`
+	TokenVersion          uint              `json:"tokenVersion"`
+	TOTPEnabled           bool              `json:"totpEnabled"`
 }
 
 type authToken struct {
@@ -138,6 +140,11 @@ func withUser(fn handleFunc) handleFunc {
 			return http.StatusInternalServerError, err
 		}
 
+		// Token revocation check: Token version mismatch indicates password change or session invalidation
+		if tk.User.TokenVersion != d.user.TokenVersion {
+			return http.StatusUnauthorized, nil
+		}
+
 		canonicalizeRequestPath(r)
 		return fn(w, r, d)
 	}
@@ -155,6 +162,16 @@ func withAdmin(fn handleFunc) handleFunc {
 
 func loginHandler(tokenExpireTime time.Duration) handleFunc {
 	return func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+		clientID := GetClientIdentifier(r)
+		if !defaultLoginLimiter.Allow(clientID) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"error": "too many failed login attempts, please try again later",
+			})
+			return 0, nil
+		}
+
 		if r.Body != nil {
 			r.Body = http.MaxBytesReader(w, r.Body, maxAuthBodySize)
 		}
@@ -166,12 +183,30 @@ func loginHandler(tokenExpireTime time.Duration) handleFunc {
 
 		user, err := auther.Auth(r, d.store.Users, d.settings, d.server)
 		switch {
+		case errors.Is(err, fberrors.ErrTOTPRequired):
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"twoFactorRequired": true,
+			})
+			return 0, nil
+		case errors.Is(err, fberrors.ErrTOTPInvalid):
+			defaultLoginLimiter.RecordFailure(clientID)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"error": "invalid two-factor authentication code",
+			})
+			return 0, nil
 		case errors.Is(err, os.ErrPermission):
+			defaultLoginLimiter.RecordFailure(clientID)
 			return http.StatusForbidden, nil
 		case err != nil:
+			defaultLoginLimiter.RecordFailure(clientID)
 			return http.StatusInternalServerError, err
 		}
 
+		defaultLoginLimiter.Reset(clientID)
 		return printToken(w, r, d, user, tokenExpireTime)
 	}
 }
@@ -264,6 +299,8 @@ func printToken(w http.ResponseWriter, _ *http.Request, d *data, user *users.Use
 			DateFormat:            user.DateFormat,
 			Username:              user.Username,
 			AceEditorTheme:        user.AceEditorTheme,
+			TokenVersion:          user.TokenVersion,
+			TOTPEnabled:           user.TOTPEnabled,
 		},
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

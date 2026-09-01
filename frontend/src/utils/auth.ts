@@ -51,9 +51,10 @@ export async function validateLogin() {
 export async function login(
   username: string,
   password: string,
-  recaptcha: string
+  recaptcha: string,
+  totpCode: string = ""
 ) {
-  const data = { username, password, recaptcha };
+  const data = { username, password, recaptcha, totpCode };
 
   const res = await fetch(`${baseURL}/api/login`, {
     method: "POST",
@@ -66,7 +67,16 @@ export async function login(
   const body = await res.text();
 
   if (res.status === 200) {
+    try {
+      const parsed = JSON.parse(body);
+      if (parsed.twoFactorRequired) {
+        return { twoFactorRequired: true };
+      }
+    } catch {
+      // Body is standard JWT token string
+    }
     parseToken(body);
+    return { success: true };
   } else {
     throw new StatusError(
       body || `${res.status} ${res.statusText}`,

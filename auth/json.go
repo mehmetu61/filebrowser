@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	fberrors "github.com/filebrowser/filebrowser/v2/errors"
 	"github.com/filebrowser/filebrowser/v2/settings"
 	"github.com/filebrowser/filebrowser/v2/users"
 )
@@ -22,6 +23,7 @@ type jsonCred struct {
 	Password  string `json:"password"`
 	Username  string `json:"username"`
 	ReCaptcha string `json:"recaptcha"`
+	TOTPCode  string `json:"totpCode"`
 }
 
 // JSONAuth is a json implementation of an Auther.
@@ -68,6 +70,15 @@ func (a JSONAuth) Auth(r *http.Request, usr users.Store, _ *settings.Settings, s
 
 	if err != nil {
 		return nil, os.ErrPermission
+	}
+
+	if u.TOTPEnabled {
+		if cred.TOTPCode == "" {
+			return nil, fberrors.ErrTOTPRequired
+		}
+		if !ValidateTOTP(cred.TOTPCode, u.TOTPSecret) {
+			return nil, fberrors.ErrTOTPInvalid
+		}
 	}
 
 	return u, nil

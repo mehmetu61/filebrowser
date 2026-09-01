@@ -251,6 +251,10 @@ var userPutHandler = withSelfOrAdmin(func(w http.ResponseWriter, r *http.Request
 			if err != nil {
 				return http.StatusBadRequest, err
 			}
+
+			// Invalidate existing sessions on password change
+			req.Data.TokenVersion++
+			req.Which = append(req.Which, "TokenVersion")
 		}
 
 		for _, f := range NonModifiableFieldsForNonAdmin {
@@ -267,3 +271,85 @@ var userPutHandler = withSelfOrAdmin(func(w http.ResponseWriter, r *http.Request
 
 	return http.StatusOK, nil
 })
+
+var user2FAGenerateHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+	secret, err := auth.GenerateTOTPSecret()
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+
+	uri := auth.GenerateTOTPURI(secret, "FileBrowser", d.user.Username)
+
+	return renderJSON(w, r, map[string]string{
+		"secret": secret,
+		"uri":    uri,
+	})
+})
+
+var user2FAVerifyHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+	if r.Body == nil {
+		return http.StatusBadRequest, fberrors.ErrEmptyRequest
+	}
+
+	var body struct {
+		Secret string `json:"secret"`
+		Code   string `json:"code"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		return http.StatusBadRequest, err
+	}
+
+	if body.Secret == "" || body.Code == "" {
+		return http.StatusBadRequest, errors.New("secret and code are required")
+	}
+
+	if !auth.ValidateTOTP(body.Code, body.Secret) {
+		return http.StatusBadRequest, fberrors.ErrTOTPInvalid
+	}
+
+	d.user.TOTPSecret = body.Secret
+	d.user.TOTPEnabled = true
+
+	if err := d.store.Users.Update(d.user, "TOTPSecret", "TOTPEnabled"); err != nil {
+		return http.StatusInternalServerError, err
+	}
+
+	return renderJSON(w, r, map[string]interface{}{
+		"success":     true,
+		"totpEnabled": true,
+	})
+})
+
+var user2FADisableHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+	if r.Body == nil {
+		return http.StatusBadRequest, fberrors.ErrEmptyRequest
+	}
+
+	var body struct {
+		Password string `json:"password"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		return http.StatusBadRequest, err
+	}
+
+	if d.settings.AuthMethod == auth.MethodJSONAuth {
+		if !users.CheckPwd(body.Password, d.user.Password) {
+			return http.StatusBadRequest, fberrors.ErrCurrentPasswordIncorrect
+		}
+	}
+
+	d.user.TOTPSecret = ""
+	d.user.TOTPEnabled = false
+
+	if err := d.store.Users.Update(d.user, "TOTPSecret", "TOTPEnabled"); err != nil {
+		return http.StatusInternalServerError, err
+	}
+
+	return renderJSON(w, r, map[string]interface{}{
+		"success":     true,
+		"totpEnabled": false,
+	})
+})
+

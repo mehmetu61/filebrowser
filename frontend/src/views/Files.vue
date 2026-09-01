@@ -44,6 +44,7 @@ import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import FileListing from "@/views/files/FileListing.vue";
 import { StatusError } from "@/api/utils";
+import { liveSync } from "@/api/ws";
 import { name } from "../utils/constants";
 
 const Editor = defineAsyncComponent(() => import("@/views/files/Editor.vue"));
@@ -59,6 +60,7 @@ const route = useRoute();
 const { t } = useI18n({});
 
 let fetchDataController = new AbortController();
+let unwatchLiveSync: (() => void) | null = null;
 
 const error = ref<StatusError | null>(null);
 
@@ -98,6 +100,10 @@ onBeforeUnmount(() => {
 
 onUnmounted(() => {
   fileStore.isFiles = false;
+  if (unwatchLiveSync) {
+    unwatchLiveSync();
+    unwatchLiveSync = null;
+  }
   if (layoutStore.showShell) {
     layoutStore.toggleShell();
   }
@@ -165,6 +171,18 @@ const fetchData = async () => {
 
     // Selects the post-reload target item or the previously visited child folder
     applyPreSelection();
+
+    // Subscribe to real-time live sync for directory
+    if (unwatchLiveSync) {
+      unwatchLiveSync();
+      unwatchLiveSync = null;
+    }
+    if (res.isDir) {
+      unwatchLiveSync = liveSync.watch(res.path, () => {
+        // Silently reload directory contents on changes
+        fileStore.reload = true;
+      });
+    }
   } catch (err) {
     if (err instanceof StatusError && err.is_canceled) {
       return;
