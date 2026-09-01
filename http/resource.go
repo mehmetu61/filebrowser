@@ -540,3 +540,66 @@ var diskUsage = withUser(func(w http.ResponseWriter, r *http.Request, d *data) (
 		Used:  usage.Used,
 	})
 })
+
+type DirSizeResponse struct {
+	Size     int64 `json:"size"`
+	Count    int   `json:"count"`
+	DirCount int   `json:"dirCount"`
+}
+
+var dirSizeHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+	file, err := files.NewFileInfo(&files.FileOptions{
+		Fs:         d.user.Fs,
+		Path:       r.URL.Path,
+		Modify:     d.user.Perm.Modify,
+		Expand:     false,
+		ReadHeader: false,
+		Checker:    d,
+		Content:    false,
+	})
+	if err != nil {
+		return errToStatus(err), err
+	}
+
+	if !file.IsDir {
+		return renderJSON(w, r, &DirSizeResponse{
+			Size:     file.Size,
+			Count:    1,
+			DirCount: 0,
+		})
+	}
+
+	var (
+		totalSize int64
+		fileCount int
+		dirCount  int
+	)
+
+	err = afero.Walk(d.user.Fs, r.URL.Path, func(fPath string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.Check(fPath) {
+			return nil
+		}
+		if info.IsDir() {
+			if fPath != r.URL.Path {
+				dirCount++
+			}
+		} else {
+			fileCount++
+			totalSize += info.Size()
+		}
+		return nil
+	})
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+
+	return renderJSON(w, r, &DirSizeResponse{
+		Size:     totalSize,
+		Count:    fileCount,
+		DirCount: dirCount,
+	})
+})
+

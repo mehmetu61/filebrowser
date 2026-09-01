@@ -55,6 +55,23 @@ export async function fetchAll(url: string): Promise<RecursiveEntry[]> {
   return (await res.json()) as RecursiveEntry[];
 }
 
+export async function getDirSize(
+  url: string,
+  signal?: AbortSignal
+): Promise<{ size: number; count: number; dirCount: number }> {
+  url = removePrefix(url);
+  const res = await fetchURL(`/api/size${url}`, { signal });
+
+  try {
+    return await res.json();
+  } catch (e) {
+    if (e instanceof Error && e.name == "AbortError") {
+      throw new StatusError("000 No connection", 0, true);
+    }
+    throw e;
+  }
+}
+
 async function resourceAction(url: string, method: ApiMethod, content?: any) {
   url = removePrefix(url);
 

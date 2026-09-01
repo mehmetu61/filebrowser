@@ -34,7 +34,23 @@
     <div>
       <p class="name">{{ name }}</p>
 
-      <p v-if="isDir" class="size" data-order="-1">&mdash;</p>
+      <p
+        v-if="isDir"
+        class="size dir-size"
+        :data-order="calculatedDirSize !== null ? calculatedDirSize : -1"
+        :title="dirItemCount || 'Klicken, um Ordnergröße zu berechnen'"
+        @click.stop="calculateDirSize"
+      >
+        <span v-if="calculatingDirSize" class="size-calc-loading">
+          <i class="material-icons rotating-icon" style="font-size: 1.1em; vertical-align: middle; animation: spin 1s linear infinite;">sync</i>
+        </span>
+        <span v-else-if="calculatedDirSize !== null" class="calculated-size" style="color: var(--blue); font-weight: 500;">
+          {{ filesize(calculatedDirSize) }}
+        </span>
+        <span v-else class="calc-trigger" style="cursor: pointer; opacity: 0.7; display: inline-flex; align-items: center; gap: 4px;">
+          &mdash; <i class="material-icons" style="font-size: 1em; opacity: 0.5;">calculate</i>
+        </span>
+      </p>
       <p v-else class="size" :data-order="humanSize()">{{ humanSize() }}</p>
 
       <p class="modified">
@@ -57,17 +73,6 @@ import * as upload from "@/utils/upload";
 import { computed, inject, ref } from "vue";
 import { useRouter } from "vue-router";
 
-const touches = ref<number>(0);
-
-const longPressTimer = ref<number | null>(null);
-const longPressTriggered = ref<boolean>(false);
-const longPressDelay = ref<number>(500);
-const startPosition = ref<{ x: number; y: number } | null>(null);
-const moveThreshold = ref<number>(10);
-
-const $showError = inject<IToastError>("$showError")!;
-const router = useRouter();
-
 const props = defineProps<{
   name: string;
   isDir: boolean;
@@ -83,6 +88,34 @@ const props = defineProps<{
 const authStore = useAuthStore();
 const fileStore = useFileStore();
 const layoutStore = useLayoutStore();
+const $showError = inject<IToastError>("$showError")!;
+const router = useRouter();
+
+const touches = ref<number>(0);
+
+const calculatedDirSize = ref<number | null>(null);
+const calculatingDirSize = ref<boolean>(false);
+const dirItemCount = ref<string>("");
+
+const calculateDirSize = async () => {
+  if (calculatingDirSize.value || !props.isDir) return;
+  calculatingDirSize.value = true;
+  try {
+    const res = await api.getDirSize(props.url);
+    calculatedDirSize.value = res.size;
+    dirItemCount.value = `${res.count} Dateien${res.dirCount ? ', ' + res.dirCount + ' Ordner' : ''}`;
+  } catch (err: any) {
+    console.error("Failed to calculate directory size", err);
+  } finally {
+    calculatingDirSize.value = false;
+  }
+};
+
+const longPressTimer = ref<number | null>(null);
+const longPressTriggered = ref<boolean>(false);
+const longPressDelay = ref<number>(500);
+const startPosition = ref<{ x: number; y: number } | null>(null);
+const moveThreshold = ref<number>(10);
 
 const singleClick = computed(
   () => !props.readOnly && authStore.user?.singleClick
