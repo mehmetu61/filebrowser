@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	fberrors "github.com/filebrowser/filebrowser/v2/errors"
-	"github.com/filebrowser/filebrowser/v2/files"
 	"github.com/filebrowser/filebrowser/v2/fileutils"
 )
 
@@ -41,8 +40,8 @@ var batchRenameHandler = withUser(func(w http.ResponseWriter, r *http.Request, d
 	results := make([]batchRenameResult, 0, len(req.Items))
 
 	for _, item := range req.Items {
-		src := files.Clean(item.From)
-		dst := files.Clean(item.To)
+		src := slashClean(item.From)
+		dst := slashClean(item.To)
 
 		if !d.Check(src) || !d.Check(dst) {
 			results = append(results, batchRenameResult{
@@ -57,7 +56,7 @@ var batchRenameHandler = withUser(func(w http.ResponseWriter, r *http.Request, d
 			continue
 		}
 
-		err := fileutils.MoveFile(d.user.Fs, src, dst)
+		err := fileutils.MoveFile(d.user.Fs, src, dst, d.settings.FileMode, d.settings.DirMode)
 		if err != nil {
 			results = append(results, batchRenameResult{
 				From:  src,

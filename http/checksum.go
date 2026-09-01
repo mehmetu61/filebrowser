@@ -9,7 +9,6 @@ import (
 	"net/http"
 
 	fberrors "github.com/filebrowser/filebrowser/v2/errors"
-	"github.com/filebrowser/filebrowser/v2/files"
 )
 
 type ChecksumResponse struct {
@@ -21,7 +20,7 @@ type ChecksumResponse struct {
 }
 
 var checksumHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
-	filePath := files.Clean(r.URL.Path)
+	filePath := slashClean(r.URL.Path)
 	if !d.Check(filePath) {
 		return http.StatusForbidden, nil
 	}

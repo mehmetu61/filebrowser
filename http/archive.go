@@ -39,12 +39,12 @@ var archiveExtractHandler = withUser(func(w http.ResponseWriter, r *http.Request
 		return http.StatusBadRequest, err
 	}
 
-	srcPath := files.Clean(req.Source)
+	srcPath := slashClean(req.Source)
 	if !d.Check(srcPath) {
 		return http.StatusForbidden, nil
 	}
 
-	destPath := files.Clean(req.Destination)
+	destPath := slashClean(req.Destination)
 	if destPath == "" || destPath == "." {
 		destPath = path.Dir(srcPath)
 	}
@@ -195,7 +195,7 @@ var archiveCompressHandler = withUser(func(w http.ResponseWriter, r *http.Reques
 		archiveName += ".zip"
 	}
 
-	destDir := files.Clean(req.Destination)
+	destDir := slashClean(req.Destination)
 	if !d.Check(destDir) {
 		return http.StatusForbidden, nil
 	}
@@ -215,7 +215,7 @@ var archiveCompressHandler = withUser(func(w http.ResponseWriter, r *http.Reques
 	defer zipWriter.Close()
 
 	for _, item := range req.Items {
-		itemPath := files.Clean(item)
+		itemPath := slashClean(item)
 		if !d.Check(itemPath) {
 			continue
 		}
