@@ -575,11 +575,17 @@ var dirSizeHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *da
 		dirCount  int
 	)
 
-	err = afero.Walk(d.user.Fs, r.URL.Path, func(fPath string, info fs.FileInfo, err error) error {
+	err = afero.Walk(d.user.Fs, r.URL.Path, func(fPath string, info os.FileInfo, err error) error {
+		if ctxErr := r.Context().Err(); ctxErr != nil {
+			return ctxErr
+		}
 		if err != nil {
 			return nil
 		}
-		if d.Check(fPath) {
+		if !d.Check(fPath) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if info.IsDir() {
@@ -593,6 +599,9 @@ var dirSizeHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *da
 		return nil
 	})
 	if err != nil {
+		if r.Context().Err() != nil {
+			return 0, err
+		}
 		return http.StatusInternalServerError, err
 	}
 
