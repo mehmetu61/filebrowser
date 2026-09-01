@@ -8,7 +8,8 @@ COPY frontend/ ./
 RUN pnpm run build
 
 # 2. Stage: Build Go backend
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS backend-builder
+FROM --platform=$BUILDPLATFORM golang:alpine AS backend-builder
+RUN apk add --no-cache git ca-certificates tzdata
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
