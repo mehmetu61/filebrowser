@@ -14,18 +14,18 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-# Remove any leftover empty dist and copy fresh frontend assets with trailing slash
+# Remove any leftover empty dist and copy fresh frontend assets
 RUN rm -rf frontend/dist && mkdir -p frontend/dist
 COPY --from=frontend-builder /src/frontend/dist/ ./frontend/dist/
 
-ARG TARGETOS=linux
-ARG TARGETARCH=amd64
+ARG TARGETOS
+ARG TARGETARCH
 ARG VERSION=latest
 ARG COMMIT_SHA=""
 
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build \
     -trimpath \
-    -ldflags="-s -w -X 'github.com/filebrowser/filebrowser/v2/version.Version=${VERSION}' -X 'github.com/filebrowser/filebrowser/v2/version.CommitSHA=${COMMIT_SHA}'" \
+    -ldflags="-s -w -X github.com/filebrowser/filebrowser/v2/version.Version=${VERSION} -X github.com/filebrowser/filebrowser/v2/version.CommitSHA=${COMMIT_SHA}" \
     -o /bin/filebrowser .
 
 # 3. Stage: Fetch dependencies & certificates
