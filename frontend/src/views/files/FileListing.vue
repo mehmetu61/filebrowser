@@ -880,7 +880,14 @@ const paste = async (event: Event | ClipboardEvent) => {
 
     if (filesToUpload.length > 0 && authStore.user?.perm.create) {
       event.preventDefault();
-      await handleFiles(filesToUpload);
+      const uploadList: UploadList = filesToUpload.map((file) => ({
+        file,
+        name: file.name,
+        size: file.size,
+        isDir: false,
+      }));
+      const path = route.path.endsWith("/") ? route.path : route.path + "/";
+      upload.handleFiles(uploadList, path);
       return;
     }
   }

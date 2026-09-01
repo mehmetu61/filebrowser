@@ -153,7 +153,7 @@ import { useRouter } from "vue-router";
 import HeaderBar from "@/components/header/HeaderBar.vue";
 import Action from "@/components/header/Action.vue";
 import { listTrash, restoreTrash, deleteTrash, emptyTrash, type TrashItem } from "@/api/trash";
-import filesize from "filesize";
+import { filesize } from "filesize";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 

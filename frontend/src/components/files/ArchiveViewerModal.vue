@@ -106,7 +106,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { listArchiveEntries, type ArchiveEntry } from "@/api/archive";
-import filesize from "filesize";
+import { filesize } from "filesize";
 import dayjs from "dayjs";
 
 interface Props {
