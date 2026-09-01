@@ -16,6 +16,20 @@
         <span>{{ $t("sidebar.myFiles") }}</span>
       </button>
 
+      <div v-if="favoritesStore.favorites.length > 0" class="favorites-section">
+        <div class="sidebar-heading">⭐ Favorites</div>
+        <button
+          v-for="fav in favoritesStore.favorites"
+          :key="fav"
+          class="action fav-action"
+          @click="toPath('/files' + fav)"
+          :title="fav"
+        >
+          <i class="material-icons">folder_special</i>
+          <span class="fav-name">{{ fav.split('/').filter(Boolean).pop() || '/' }}</span>
+        </button>
+      </div>
+
       <div v-if="user.perm.create">
         <button
           @click="showHover('newDir')"
@@ -120,6 +134,7 @@ import { mapActions, mapState } from "pinia";
 import { useAuthStore } from "@/stores/auth";
 import { useFileStore } from "@/stores/file";
 import { useLayoutStore } from "@/stores/layout";
+import { useFavoritesStore } from "@/stores/favorites";
 
 import * as auth from "@/utils/auth";
 import {
@@ -142,7 +157,8 @@ export default {
   name: "sidebar",
   setup() {
     const usage = reactive(USAGE_DEFAULT);
-    return { usage, usageAbortController: new AbortController() };
+    const favoritesStore = useFavoritesStore();
+    return { usage, favoritesStore, usageAbortController: new AbortController() };
   },
   components: {
     ProgressBar,
@@ -188,6 +204,10 @@ export default {
         return Object.assign(this.usage, usageStats);
       }
     },
+    toPath(destPath) {
+      this.$router.push({ path: destPath });
+      this.closeHovers();
+    },
     toRoot() {
       this.$router.push({ path: "/files" });
       this.closeHovers();
@@ -220,3 +240,31 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.favorites-section {
+  margin: 0.5em 0;
+  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  padding: 0.4em 0;
+}
+
+.sidebar-heading {
+  padding: 0.3em 1.2em;
+  font-size: 0.75em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+}
+
+.fav-action {
+  font-size: 0.9em;
+}
+
+.fav-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

@@ -25,6 +25,30 @@
             show="rename"
           />
           <action
+            v-if="headerButtons.batchRename"
+            icon="label_outline"
+            label="Batch Rename"
+            @action="openBatchRename"
+          />
+          <action
+            v-if="headerButtons.archiveExtract"
+            icon="unarchive"
+            label="Extract Archive"
+            @action="openArchiveExtract"
+          />
+          <action
+            v-if="headerButtons.archiveCompress"
+            icon="archive"
+            label="Compress to ZIP"
+            @action="openArchiveCompress"
+          />
+          <action
+            v-if="headerButtons.checksum"
+            icon="fingerprint"
+            label="Checksum"
+            @action="openChecksum"
+          />
+          <action
             v-if="headerButtons.copy"
             id="copy-button"
             icon="content_copy"
@@ -159,15 +183,35 @@
           multiple
         />
       </div>
-      <div
-        v-else
-        id="listing"
-        ref="listing"
-        class="file-icons"
-        data-clear-on-click="true"
-        :class="authStore.user?.viewMode ?? ''"
-        @click="handleEmptyAreaClick"
-      >
+      <div v-else>
+        <!-- Tag Filter Chips Bar -->
+        <div class="tag-filter-bar">
+          <button
+            type="button"
+            :class="['tag-chip', { active: tagsStore.activeFilterTag === null }]"
+            @click="tagsStore.setFilterTag(null)"
+          >
+            All Files
+          </button>
+          <button
+            v-for="tag in TAG_COLORS"
+            :key="tag.id"
+            :class="['tag-chip', { active: tagsStore.activeFilterTag === tag.id }]"
+            @click="tagsStore.setFilterTag(tagsStore.activeFilterTag === tag.id ? null : tag.id)"
+          >
+            <span class="chip-dot" :style="{ backgroundColor: tag.color }"></span>
+            {{ tag.name }}
+          </button>
+        </div>
+
+        <div
+          id="listing"
+          ref="listing"
+          class="file-icons"
+          data-clear-on-click="true"
+          :class="authStore.user?.viewMode ?? ''"
+          @click="handleEmptyAreaClick"
+        >
         <div>
           <div class="item header">
             <div>
@@ -275,6 +319,30 @@
             show="rename"
           />
           <action
+            v-if="headerButtons.batchRename"
+            icon="label_outline"
+            label="Batch Rename"
+            @action="openBatchRename"
+          />
+          <action
+            v-if="headerButtons.archiveExtract"
+            icon="unarchive"
+            label="Extract Archive"
+            @action="openArchiveExtract"
+          />
+          <action
+            v-if="headerButtons.archiveCompress"
+            icon="archive"
+            label="Compress to ZIP"
+            @action="openArchiveCompress"
+          />
+          <action
+            v-if="headerButtons.checksum"
+            icon="fingerprint"
+            label="Checksum"
+            @action="openChecksum"
+          />
+          <action
             v-if="headerButtons.copy"
             id="copy-button"
             icon="content_copy"
@@ -303,6 +371,20 @@
             :counter="fileStore.selectedCount"
           />
           <action icon="info" :label="t('buttons.info')" show="info" />
+
+          <!-- Color Tags Context Submenu -->
+          <div v-if="selectedItems.length > 0" class="context-tags-bar">
+            <span class="context-tags-label">Tags:</span>
+            <button
+              v-for="tag in TAG_COLORS"
+              :key="tag.id"
+              type="button"
+              class="context-tag-dot"
+              :style="{ backgroundColor: tag.color }"
+              :title="'Toggle ' + tag.name"
+              @click="toggleTagOnSelected(tag.id)"
+            ></button>
+          </div>
         </context-menu>
 
         <input
@@ -372,6 +454,8 @@ import { useI18n } from "vue-i18n";
 import { storeToRefs } from "pinia";
 import { removePrefix } from "@/api/utils";
 
+import { useTagsStore, TAG_COLORS } from "@/stores/tags";
+
 const showLimit = ref<number>(50);
 const columnWidth = ref<number>(280);
 const dragCounter = ref<number>(0);
@@ -386,6 +470,7 @@ const clipboardStore = useClipboardStore();
 const authStore = useAuthStore();
 const fileStore = useFileStore();
 const layoutStore = useLayoutStore();
+const tagsStore = useTagsStore();
 
 const { req } = storeToRefs(fileStore);
 
@@ -419,8 +504,15 @@ const dirs = computed(() => items.value.dirs.slice(0, showLimit.value));
 const items = computed(() => {
   const dirs: any[] = [];
   const files: any[] = [];
+  const activeTag = tagsStore.activeFilterTag;
 
   fileStore.req?.items.forEach((item) => {
+    if (activeTag) {
+      const itemTags = tagsStore.getTags(item.url);
+      if (!itemTags.includes(activeTag)) {
+        return;
+      }
+    }
     if (item.isDir) {
       dirs.push(item);
     } else {
@@ -430,6 +522,12 @@ const items = computed(() => {
 
   return { dirs, files };
 });
+
+const toggleTagOnSelected = (tagId: string) => {
+  selectedItems.value.forEach((item) => {
+    tagsStore.toggleTag(item.url, tagId);
+  });
+};
 
 const files = computed((): Resource[] => {
   let _showLimit = showLimit.value - items.value.dirs.length;
@@ -474,6 +572,19 @@ const viewIcon = computed(() => {
     : icons[authStore.user.viewMode];
 });
 
+const selectedItems = computed(() => {
+  if (!req.value?.items) return [];
+  return fileStore.selected.map((idx) => req.value!.items[idx]).filter(Boolean);
+});
+
+const isSingleArchive = computed(() => {
+  if (fileStore.selectedCount !== 1) return false;
+  const item = selectedItems.value[0];
+  if (!item || item.isDir) return false;
+  const lower = item.name.toLowerCase();
+  return lower.endsWith(".zip") || lower.endsWith(".tar.gz") || lower.endsWith(".tar") || lower.endsWith(".tgz");
+});
+
 const headerButtons = computed(() => {
   return {
     upload: authStore.user?.perm.create,
@@ -481,6 +592,10 @@ const headerButtons = computed(() => {
     shell: authStore.user?.perm.execute && enableExec,
     delete: fileStore.selectedCount > 0 && authStore.user?.perm.delete,
     rename: fileStore.selectedCount === 1 && authStore.user?.perm.rename,
+    batchRename: fileStore.selectedCount > 1 && authStore.user?.perm.rename,
+    archiveExtract: isSingleArchive.value && authStore.user?.perm.create,
+    archiveCompress: fileStore.selectedCount > 0 && authStore.user?.perm.create,
+    checksum: fileStore.selectedCount === 1 && !selectedItems.value[0]?.isDir,
     share:
       fileStore.selectedCount === 1 &&
       authStore.user?.perm.share &&
@@ -489,6 +604,59 @@ const headerButtons = computed(() => {
     copy: fileStore.selectedCount > 0 && authStore.user?.perm.create,
   };
 });
+
+const openBatchRename = () => {
+  layoutStore.showHover({
+    prompt: "batchRename",
+    props: {
+      items: selectedItems.value.map((i) => ({
+        name: i.name,
+        path: i.path || route.path.replace(/\/$/, "") + "/" + i.name,
+        isDir: i.isDir,
+      })),
+      currentPath: route.path,
+    },
+  });
+};
+
+const openArchiveExtract = () => {
+  const item = selectedItems.value[0];
+  if (!item) return;
+  layoutStore.showHover({
+    prompt: "archiveExtract",
+    props: {
+      path: item.path || route.path.replace(/\/$/, "") + "/" + item.name,
+      name: item.name,
+      currentDir: route.path,
+    },
+  });
+};
+
+const openArchiveCompress = async () => {
+  const paths = selectedItems.value.map(
+    (i) => i.path || route.path.replace(/\/$/, "") + "/" + i.name
+  );
+  const destDir = route.path;
+  try {
+    const archiveApi = await import("@/api/archive");
+    await archiveApi.compressItems(paths, destDir, "archive.zip");
+    fileStore.reload = true;
+  } catch (err) {
+    console.error("Compression failed", err);
+  }
+};
+
+const openChecksum = () => {
+  const item = selectedItems.value[0];
+  if (!item) return;
+  layoutStore.showHover({
+    prompt: "checksum",
+    props: {
+      path: item.path || route.path.replace(/\/$/, "") + "/" + item.name,
+      name: item.name,
+    },
+  });
+};
 
 const isMobile = computed(() => {
   return width.value <= 736;

@@ -15,6 +15,17 @@
       >
       <component :is="element" :to="link.url">{{ link.name }}</component>
     </span>
+
+    <button
+      v-if="currentFolderPath"
+      type="button"
+      class="fav-toggle-btn"
+      :class="{ isFav: favoritesStore.isFavorite(currentFolderPath) }"
+      @click="favoritesStore.toggleFavorite(currentFolderPath)"
+      :title="favoritesStore.isFavorite(currentFolderPath) ? 'Remove from favorites' : 'Add to favorites'"
+    >
+      <i class="material-icons">{{ favoritesStore.isFavorite(currentFolderPath) ? 'star' : 'star_border' }}</i>
+    </button>
   </div>
 </template>
 
@@ -22,15 +33,22 @@
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
+import { useFavoritesStore } from "@/stores/favorites";
 
 const { t } = useI18n();
-
 const route = useRoute();
+const favoritesStore = useFavoritesStore();
 
 const props = defineProps<{
   base: string;
   noLink?: boolean;
 }>();
+
+const currentFolderPath = computed(() => {
+  if (!route.path.startsWith(props.base)) return "";
+  const rel = route.path.replace(props.base, "");
+  return rel || "/";
+});
 
 const items = computed(() => {
   const relativePath = route.path.replace(props.base, "");
@@ -80,4 +98,29 @@ const element = computed(() => {
 });
 </script>
 
-<style></style>
+<style scoped>
+.fav-toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--textSecondary, #94a3b8);
+  transition: all 0.2s;
+  vertical-align: middle;
+}
+
+.fav-toggle-btn:hover {
+  color: #f59e0b;
+  transform: scale(1.15);
+}
+
+.fav-toggle-btn.isFav {
+  color: #f59e0b;
+}
+
+.fav-toggle-btn i {
+  font-size: 1.25em;
+}
+</style>

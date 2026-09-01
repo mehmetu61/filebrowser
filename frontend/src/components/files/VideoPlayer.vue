@@ -80,7 +80,42 @@ const initVideoPlayer = async () => {
       srcOpt,
       playbackRatesOpt
     );
-    player.value = videojs(videoPlayer.value!, options, () => {});
+    player.value = videojs(videoPlayer.value!, options, () => {
+      if (!player.value) return;
+
+      const RESUME_KEY = "fb_video_pos_" + encodeURIComponent(props.source);
+
+      // Restore saved playback position on load
+      player.value.on("loadedmetadata", () => {
+        try {
+          const savedTime = parseFloat(localStorage.getItem(RESUME_KEY) || "0");
+          const duration = player.value?.duration() || 0;
+          if (savedTime > 5 && duration > 15 && savedTime < duration - 5) {
+            player.value?.currentTime(savedTime);
+          }
+        } catch {}
+      });
+
+      // Save position during playback (throttled)
+      let lastSave = 0;
+      player.value.on("timeupdate", () => {
+        const now = Date.now();
+        if (now - lastSave > 2500) {
+          lastSave = now;
+          const curr = player.value?.currentTime() || 0;
+          try {
+            localStorage.setItem(RESUME_KEY, curr.toString());
+          } catch {}
+        }
+      });
+
+      // Clear when ended
+      player.value.on("ended", () => {
+        try {
+          localStorage.removeItem(RESUME_KEY);
+        } catch {}
+      });
+    });
 
     // TODO: need to test on mobile
     // @ts-expect-error no ts definition for mobileUi

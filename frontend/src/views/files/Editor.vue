@@ -24,12 +24,13 @@
         @action="save()"
       />
 
-      <action
-        icon="preview"
-        :label="t('buttons.preview')"
-        @action="preview()"
-        v-show="isMarkdownFile"
-      />
+      <template v-if="isMarkdownFile">
+        <action
+          :icon="viewMode === 'split' ? 'vertical_split' : viewMode === 'preview' ? 'visibility' : 'edit'"
+          :label="viewMode === 'split' ? 'Split View' : viewMode === 'preview' ? 'Preview Only' : 'Editor Only'"
+          @action="cycleViewMode"
+        />
+      </template>
     </header-bar>
 
     <!-- preview container -->
@@ -66,13 +67,20 @@
         </div>
       </div>
 
-      <div
-        v-show="isPreview && isMarkdownFile"
-        id="preview-container"
-        class="md_preview"
-        v-html="previewContent"
-      ></div>
-      <form v-show="!isPreview || !isMarkdownFile" id="editor"></form>
+      <div :class="['editor-workspace', { 'is-split': viewMode === 'split' && isMarkdownFile }]">
+        <form
+          v-show="viewMode !== 'preview' || !isMarkdownFile"
+          id="editor"
+          :class="{ 'split-pane': viewMode === 'split' && isMarkdownFile }"
+        ></form>
+        <div
+          v-show="(viewMode === 'preview' || viewMode === 'split') && isMarkdownFile"
+          id="preview-container"
+          class="md_preview"
+          :class="{ 'split-pane': viewMode === 'split' && isMarkdownFile }"
+          v-html="previewContent"
+        ></div>
+      </div>
     </template>
   </div>
 </template>
@@ -114,7 +122,7 @@ const router = useRouter();
 const editor = ref<Ace.Editor | null>(null);
 const fontSize = ref(parseInt(localStorage.getItem("editorFontSize") || "14"));
 
-const isPreview = ref(false);
+const viewMode = ref<"edit" | "split" | "preview">("edit");
 const previewContent = ref("");
 const isMarkdownFile =
   fileStore.req?.name.endsWith(".md") ||
@@ -126,6 +134,30 @@ const katexOptions = {
 marked.use(markedKatex(katexOptions));
 
 const isSelectionEmpty = ref(true);
+
+const cycleViewMode = () => {
+  if (viewMode.value === "edit") {
+    viewMode.value = "split";
+  } else if (viewMode.value === "split") {
+    viewMode.value = "preview";
+  } else {
+    viewMode.value = "edit";
+  }
+  updateMarkdownPreview();
+  setTimeout(() => {
+    editor.value?.resize();
+  }, 50);
+};
+
+const updateMarkdownPreview = async () => {
+  if (!isMarkdownFile) return;
+  const val = editor.value?.getValue() || "";
+  try {
+    previewContent.value = DOMPurify.sanitize(await marked(val));
+  } catch (error) {
+    console.error("Failed to convert markdown:", error);
+  }
+};
 
 const executeEditorCommand = (name: string) => {
   if (name == "paste") {
@@ -238,6 +270,16 @@ const initEditor = (fileContent: string) => {
   selection.on("changeSelection", function () {
     isSelectionEmpty.value = selection.isEmpty();
   });
+
+  editor.value.session.on("change", () => {
+    if (viewMode.value === "split" || viewMode.value === "preview") {
+      updateMarkdownPreview();
+    }
+  });
+
+  if (isMarkdownFile) {
+    updateMarkdownPreview();
+  }
 };
 
 const keyEvent = (event: KeyboardEvent) => {
@@ -358,5 +400,31 @@ const preview = () => {
 
 .editor-header > div > button > span > i {
   font-size: 1.2rem;
+}
+
+.editor-workspace {
+  height: calc(100vh - 8em);
+  width: 100%;
+  position: relative;
+}
+
+.editor-workspace.is-split {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+}
+
+.editor-workspace.is-split .split-pane {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+}
+
+#preview-container {
+  padding: 1.5em;
+  background: var(--surfaceSecondary, rgba(255, 255, 255, 0.05));
+  border-radius: 8px;
+  overflow-y: auto;
 }
 </style>

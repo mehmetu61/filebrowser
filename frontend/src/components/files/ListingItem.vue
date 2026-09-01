@@ -32,7 +32,18 @@
     </div>
 
     <div>
-      <p class="name">{{ name }}</p>
+      <p class="name">
+        {{ name }}
+        <span v-if="itemTags.length > 0" class="item-tag-dots">
+          <span
+            v-for="tag in itemTags"
+            :key="tag.id"
+            class="tag-dot"
+            :style="{ backgroundColor: tag.color }"
+            :title="tag.name"
+          ></span>
+        </span>
+      </p>
 
       <p
         v-if="isDir"
@@ -64,6 +75,7 @@
 import { useAuthStore } from "@/stores/auth";
 import { useFileStore } from "@/stores/file";
 import { useLayoutStore } from "@/stores/layout";
+import { useTagsStore, TAG_COLORS } from "@/stores/tags";
 
 import { enableThumbs } from "@/utils/constants";
 import { filesize } from "@/utils";
@@ -88,8 +100,14 @@ const props = defineProps<{
 const authStore = useAuthStore();
 const fileStore = useFileStore();
 const layoutStore = useLayoutStore();
+const tagsStore = useTagsStore();
 const $showError = inject<IToastError>("$showError")!;
 const router = useRouter();
+
+const itemTags = computed(() => {
+  const activeTags = tagsStore.getTags(props.url);
+  return TAG_COLORS.filter((tc) => activeTags.includes(tc.id));
+});
 
 const touches = ref<number>(0);
 
