@@ -26,7 +26,7 @@
         />
         <action
           :disabled="layoutStore.loading"
-          v-if="isCsv && authStore.user?.perm.modify"
+          v-if="authStore.user?.perm.modify"
           icon="edit_note"
           :label="t('buttons.editAsText')"
           @action="editAsText"
@@ -148,10 +148,20 @@
               v-if="!fileStore.req?.isDir"
             >
               <div>
-                <i class="material-icons">open_in_new</i
-                >{{ $t("buttons.openFile") }}
+                <i class="material-icons">open_in_new</i>
+                {{ $t("buttons.openFile") }}
               </div>
             </a>
+            <button
+              class="button button--flat"
+              v-if="!fileStore.req?.isDir && authStore.user?.perm.modify"
+              @click="editAsText"
+            >
+              <div>
+                <i class="material-icons">mode_edit</i>
+                <span>{{ t("buttons.editAsText") || "Edit as Text" }}</span>
+              </div>
+            </button>
           </div>
         </div>
       </div>

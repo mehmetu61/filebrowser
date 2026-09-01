@@ -57,6 +57,8 @@ const { reload } = storeToRefs(fileStore);
 
 const route = useRoute();
 
+import { isTextFile } from "@/utils";
+
 const { t } = useI18n({});
 
 let fetchDataController = new AbortController();
@@ -71,7 +73,7 @@ const currentView = computed(() => {
 
   if (fileStore.req.isDir) {
     return FileListing;
-  } else if (fileStore.req.extension.toLowerCase() === ".csv") {
+  } else if (fileStore.req.extension?.toLowerCase() === ".csv") {
     // CSV files use Preview for table view, unless ?edit=true
     if (route.query.edit === "true") {
       return Editor;
@@ -79,7 +81,8 @@ const currentView = computed(() => {
     return Preview;
   } else if (
     fileStore.req.type === "text" ||
-    fileStore.req.type === "textImmutable"
+    fileStore.req.type === "textImmutable" ||
+    isTextFile(fileStore.req.name, fileStore.req.extension)
   ) {
     return Editor;
   } else {

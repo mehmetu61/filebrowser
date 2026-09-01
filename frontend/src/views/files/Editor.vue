@@ -23,6 +23,12 @@
         :label="t('buttons.save')"
         @action="save()"
       />
+      <action
+        v-if="authStore.user?.perm.modify"
+        icon="undo"
+        label="Revert"
+        @action="revert()"
+      />
 
       <template v-if="isMarkdownFile">
         <action
@@ -191,8 +197,6 @@ onMounted(() => {
   window.addEventListener("keydown", keyEvent);
   window.addEventListener("beforeunload", handlePageChange);
 
-  const fileContent = fileStore.req?.content || "";
-
   watchEffect(async () => {
     if (isMarkdownFile.value && viewMode.value !== "edit") {
       const new_value = editor.value?.getValue() || "";
@@ -210,19 +214,27 @@ onMounted(() => {
     `https://cdn.jsdelivr.net/npm/ace-builds@${ace_version}/src-min-noconflict/`
   );
 
-  if (!layoutStore.loading) {
-    initEditor(fileContent);
-  } else {
-    const unwatch = watchEffect(() => {
-      // Initialize editor when layout is loaded
-      if (!layoutStore.loading) {
-        setTimeout(() => {
-          initEditor(fileContent);
-          unwatch();
-        }, 50);
+  const checkAndInit = () => {
+    if (!layoutStore.loading && fileStore.req) {
+      if (!editor.value) {
+        initEditor();
+      } else if (fileStore.req.content !== undefined) {
+        if (editor.value.session.getUndoManager().isClean()) {
+          editor.value.setValue(fileStore.req.content, -1);
+          editor.value.session.getUndoManager().markClean();
+        }
       }
-    });
-  }
+    }
+  };
+
+  checkAndInit();
+
+  watch(
+    () => [layoutStore.loading, fileStore.req?.content],
+    () => {
+      checkAndInit();
+    }
+  );
 });
 
 onBeforeUnmount(() => {
@@ -251,13 +263,16 @@ onBeforeRouteUpdate((to, from, next) => {
   });
 });
 
-const initEditor = (fileContent: string) => {
+const initEditor = () => {
+  const fileContent = fileStore.req?.content || "";
+  const fileName = fileStore.req?.name || "";
+
   editor.value = ace.edit("editor", {
     value: fileContent,
     showPrintMargin: false,
     readOnly: fileStore.req?.type === "textImmutable",
     theme: getEditorTheme(authStore.user?.aceEditorTheme ?? ""),
-    mode: modelist.getModeForPath(fileStore.req!.name).mode,
+    mode: modelist.getModeForPath(fileName).mode,
     wrap: true,
     enableBasicAutocompletion: true,
     enableLiveAutocompletion: true,
@@ -280,6 +295,13 @@ const initEditor = (fileContent: string) => {
 
   if (isMarkdownFile.value) {
     updateMarkdownPreview();
+  }
+};
+
+const revert = () => {
+  if (editor.value && fileStore.req) {
+    editor.value.setValue(fileStore.req.content || "", -1);
+    editor.value.session.getUndoManager().markClean();
   }
 };
 
