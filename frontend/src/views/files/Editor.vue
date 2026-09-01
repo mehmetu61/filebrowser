@@ -523,6 +523,10 @@ const initEditor = () => {
   if (isMarkdownFile.value) {
     updateMarkdownPreview();
   }
+
+  nextTick(() => {
+    editor.value?.resize();
+  });
 };
 
 const revert = () => {
@@ -693,9 +697,21 @@ const finishClose = () => {
 }
 
 .editor-workspace {
+  flex: 1;
+  min-height: 0;
   height: calc(100vh - 10.5em);
   width: 100%;
   position: relative;
+  display: flex;
+}
+
+#editor {
+  flex: 1;
+  height: 100%;
+  width: 100%;
+  position: relative;
+  min-height: 0;
+  display: block;
 }
 
 .editor-workspace.is-split {
