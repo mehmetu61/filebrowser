@@ -7,6 +7,11 @@
       <p v-else>
         {{ $t("prompts.deleteMessageMultiple", { count: selectedCount }) }}
       </p>
+
+      <div style="margin-top: 1em; display: flex; align-items: center; gap: 0.5em; font-size: 0.9em; opacity: 0.85;">
+        <input type="checkbox" id="perm-delete" v-model="permanent" />
+        <label for="perm-delete" style="cursor: pointer;">Endgültig löschen (nicht in Papierkorb)</label>
+      </div>
     </div>
     <div class="card-action">
       <button
@@ -26,7 +31,7 @@
         :title="$t('buttons.delete')"
         tabindex="1"
       >
-        {{ $t("buttons.delete") }}
+        {{ permanent ? "Endgültig löschen" : "In Papierkorb" }}
       </button>
     </div>
   </div>
@@ -42,6 +47,11 @@ import { useLayoutStore } from "@/stores/layout";
 export default {
   name: "delete",
   inject: ["$showError"],
+  data() {
+    return {
+      permanent: false,
+    };
+  },
   computed: {
     ...mapState(useFileStore, [
       "isListing",
@@ -56,10 +66,11 @@ export default {
     ...mapActions(useLayoutStore, ["closeHovers"]),
     submit: async function () {
       buttons.loading("delete");
+      const suffix = this.permanent ? "?permanent=true" : "";
 
       try {
         if (!this.isListing) {
-          await api.remove(this.$route.path);
+          await api.remove(this.$route.path + suffix);
           buttons.success("delete");
 
           this.currentPrompt?.confirm();
@@ -75,7 +86,7 @@ export default {
 
         const promises = [];
         for (const index of this.selected) {
-          promises.push(api.remove(this.req.items[index].url));
+          promises.push(api.remove(this.req.items[index].url + suffix));
         }
 
         await Promise.all(promises);

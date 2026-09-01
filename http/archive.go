@@ -5,6 +5,7 @@ import (
 	"archive/zip"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,10 +13,128 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	fberrors "github.com/filebrowser/filebrowser/v2/errors"
 	"github.com/spf13/afero"
 )
+
+// ArchiveEntry represents a single file or directory inside an archive.
+type ArchiveEntry struct {
+	Name           string    `json:"name"`
+	Path           string    `json:"path"`
+	Size           int64     `json:"size"`
+	CompressedSize int64     `json:"compressedSize"`
+	IsDir          bool      `json:"isDir"`
+	Modified       time.Time `json:"modified"`
+}
+
+var archiveListHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+	srcPath := slashClean(r.URL.Query().Get("path"))
+	if srcPath == "" || !d.Check(srcPath) {
+		return http.StatusForbidden, nil
+	}
+
+	srcFile, err := d.user.Fs.Open(srcPath)
+	if err != nil {
+		return errToStatus(err), err
+	}
+	defer srcFile.Close()
+
+	srcStat, err := srcFile.Stat()
+	if err != nil {
+		return errToStatus(err), err
+	}
+
+	var entries []ArchiveEntry
+	lowerSrc := strings.ToLower(srcPath)
+
+	if strings.HasSuffix(lowerSrc, ".zip") {
+		zipReader, err := zip.NewReader(srcFile, srcStat.Size())
+		if err != nil {
+			return http.StatusBadRequest, fmt.Errorf("failed to open zip: %w", err)
+		}
+
+		for _, f := range zipReader.File {
+			cleanName := filepath.Clean(f.Name)
+			if strings.HasPrefix(cleanName, "..") {
+				continue
+			}
+			cleanPath := filepath.ToSlash(cleanName)
+			isDir := f.FileInfo().IsDir() || strings.HasSuffix(f.Name, "/")
+			entries = append(entries, ArchiveEntry{
+				Name:           path.Base(cleanPath),
+				Path:           cleanPath,
+				Size:           int64(f.UncompressedSize64),
+				CompressedSize: int64(f.CompressedSize64),
+				IsDir:          isDir,
+				Modified:       f.Modified,
+			})
+		}
+	} else if strings.HasSuffix(lowerSrc, ".tar.gz") || strings.HasSuffix(lowerSrc, ".tgz") {
+		gzReader, err := gzip.NewReader(srcFile)
+		if err != nil {
+			return http.StatusBadRequest, fmt.Errorf("failed to open gzip: %w", err)
+		}
+		defer gzReader.Close()
+
+		tarReader := tar.NewReader(gzReader)
+		for {
+			hdr, err := tarReader.Next()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return http.StatusBadRequest, fmt.Errorf("failed to read tar entry: %w", err)
+			}
+
+			cleanName := filepath.Clean(hdr.Name)
+			if strings.HasPrefix(cleanName, "..") {
+				continue
+			}
+			cleanPath := filepath.ToSlash(cleanName)
+			isDir := hdr.Typeflag == tar.TypeDir || strings.HasSuffix(hdr.Name, "/")
+			entries = append(entries, ArchiveEntry{
+				Name:           path.Base(cleanPath),
+				Path:           cleanPath,
+				Size:           hdr.Size,
+				CompressedSize: 0,
+				IsDir:          isDir,
+				Modified:       hdr.ModTime,
+			})
+		}
+	} else if strings.HasSuffix(lowerSrc, ".tar") {
+		tarReader := tar.NewReader(srcFile)
+		for {
+			hdr, err := tarReader.Next()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return http.StatusBadRequest, fmt.Errorf("failed to read tar entry: %w", err)
+			}
+
+			cleanName := filepath.Clean(hdr.Name)
+			if strings.HasPrefix(cleanName, "..") {
+				continue
+			}
+			cleanPath := filepath.ToSlash(cleanName)
+			isDir := hdr.Typeflag == tar.TypeDir || strings.HasSuffix(hdr.Name, "/")
+			entries = append(entries, ArchiveEntry{
+				Name:           path.Base(cleanPath),
+				Path:           cleanPath,
+				Size:           hdr.Size,
+				CompressedSize: 0,
+				IsDir:          isDir,
+				Modified:       hdr.ModTime,
+			})
+		}
+	} else {
+		return http.StatusBadRequest, errors.New("unsupported archive format")
+	}
+
+	return renderJSON(w, r, entries)
+})
 
 type extractRequest struct {
 	Source      string `json:"source"`

@@ -78,9 +78,14 @@ func NewHandler(
 	api.PathPrefix("/usage").Handler(monkey(diskUsage, "/api/usage")).Methods("GET")
 	api.PathPrefix("/size").Handler(monkey(dirSizeHandler, "/api/size")).Methods("GET")
 	api.PathPrefix("/checksum").Handler(monkey(checksumHandler, "/api/checksum")).Methods("GET")
+	api.Handle("/archive/list", monkey(archiveListHandler, "")).Methods("GET")
 	api.Handle("/archive/extract", monkey(archiveExtractHandler, "")).Methods("POST")
 	api.Handle("/archive/compress", monkey(archiveCompressHandler, "")).Methods("POST")
 	api.Handle("/resources/batch-rename", monkey(batchRenameHandler, "")).Methods("POST")
+
+	api.Handle("/trash", monkey(trashListHandler, "")).Methods("GET")
+	api.Handle("/trash/restore", monkey(trashRestoreHandler, "")).Methods("POST")
+	api.Handle("/trash", monkey(trashDeleteHandler, "")).Methods("DELETE")
 
 	api.Handle("/shares", monkey(shareListHandler, "")).Methods("GET")
 	api.PathPrefix("/share").Handler(monkey(shareGetsHandler, "/api/share")).Methods("GET")

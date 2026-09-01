@@ -118,9 +118,19 @@ func resourceDeleteHandler(fileCache FileCache) handleFunc {
 			return errToStatus(err), err
 		}
 
-		err = d.RunHook(func() error {
-			return d.user.Fs.RemoveAll(r.URL.Path)
-		}, "delete", r.URL.Path, "", d.user)
+		permanent := r.URL.Query().Get("permanent") == "true"
+		inTrash := strings.HasPrefix(slashClean(r.URL.Path), "/"+TrashDirName) || strings.HasPrefix(slashClean(r.URL.Path), TrashDirName)
+
+		if permanent || inTrash {
+			err = d.RunHook(func() error {
+				return d.user.Fs.RemoveAll(r.URL.Path)
+			}, "delete", r.URL.Path, "", d.user)
+		} else {
+			err = d.RunHook(func() error {
+				_, moveErr := moveToTrash(d.user.Fs, r.URL.Path, file)
+				return moveErr
+			}, "delete", r.URL.Path, "", d.user)
+		}
 
 		if err != nil {
 			return errToStatus(err), err

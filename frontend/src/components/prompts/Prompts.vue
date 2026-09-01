@@ -39,6 +39,7 @@ import BatchRenameModal from "@/components/files/BatchRenameModal.vue";
 import ChecksumModal from "@/components/files/ChecksumModal.vue";
 import ArchiveExtractModal from "@/components/files/ArchiveExtractModal.vue";
 import ArchiveCompressModal from "@/components/files/ArchiveCompressModal.vue";
+import ArchiveViewerModal from "@/components/files/ArchiveViewerModal.vue";
 
 const layoutStore = useLayoutStore();
 const fileStore = useFileStore();
@@ -54,6 +55,7 @@ const components = new Map<string, any>([
   ["checksum", ChecksumModal],
   ["archiveExtract", ArchiveExtractModal],
   ["archiveCompress", ArchiveCompressModal],
+  ["archiveViewer", ArchiveViewerModal],
   ["move", Move],
   ["copy", Copy],
   ["newFile", NewFile],

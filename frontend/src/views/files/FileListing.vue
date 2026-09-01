@@ -31,6 +31,12 @@
             @action="openBatchRename"
           />
           <action
+            v-if="headerButtons.archiveViewer"
+            icon="folder_zip"
+            label="Archiv ansehen"
+            @action="openArchiveViewer"
+          />
+          <action
             v-if="headerButtons.archiveExtract"
             icon="unarchive"
             label="Extract Archive"
@@ -325,6 +331,12 @@
             @action="openBatchRename"
           />
           <action
+            v-if="headerButtons.archiveViewer"
+            icon="folder_zip"
+            label="Archiv ansehen"
+            @action="openArchiveViewer"
+          />
+          <action
             v-if="headerButtons.archiveExtract"
             icon="unarchive"
             label="Extract Archive"
@@ -435,6 +447,7 @@ import buttons from "@/utils/buttons";
 import css from "@/utils/css";
 import { throttle } from "lodash-es";
 import { Base64 } from "js-base64";
+import dayjs from "dayjs";
 
 import HeaderBar from "@/components/header/HeaderBar.vue";
 import Action from "@/components/header/Action.vue";
@@ -594,6 +607,7 @@ const headerButtons = computed(() => {
     delete: fileStore.selectedCount > 0 && authStore.user?.perm.delete,
     rename: fileStore.selectedCount === 1 && authStore.user?.perm.rename,
     batchRename: fileStore.selectedCount > 1 && authStore.user?.perm.rename,
+    archiveViewer: isSingleArchive.value,
     archiveExtract: isSingleArchive.value && authStore.user?.perm.create,
     archiveCompress: fileStore.selectedCount > 0 && authStore.user?.perm.create,
     checksum: fileStore.selectedCount === 1 && !selectedItems.value[0]?.isDir,
@@ -605,6 +619,19 @@ const headerButtons = computed(() => {
     copy: fileStore.selectedCount > 0 && authStore.user?.perm.create,
   };
 });
+
+const openArchiveViewer = () => {
+  const item = selectedItems.value[0];
+  if (!item) return;
+  layoutStore.showHover({
+    prompt: "archiveViewer",
+    props: {
+      path: item.path || route.path.replace(/\/$/, "") + "/" + item.name,
+      name: item.name,
+      canExtract: !!(authStore.user?.perm.create && authStore.user?.perm.modify),
+    },
+  });
+};
 
 const openBatchRename = () => {
   layoutStore.showHover({
@@ -698,6 +725,7 @@ onMounted(() => {
   window.addEventListener("keydown", keyEvent);
   window.addEventListener("scroll", scrollEvent);
   window.addEventListener("resize", windowsResize);
+  window.addEventListener("paste", paste);
 
   if (!authStore.user?.perm.create) return;
   document.addEventListener("dragover", preventDefault);
@@ -711,6 +739,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("keydown", keyEvent);
   window.removeEventListener("scroll", scrollEvent);
   window.removeEventListener("resize", windowsResize);
+  window.removeEventListener("paste", paste);
 
   if (authStore.user && !authStore.user?.perm.create) return;
   document.removeEventListener("dragover", preventDefault);
@@ -819,10 +848,44 @@ const copyCut = (event: Event | KeyboardEvent): void => {
   });
 };
 
-const paste = async (event: Event) => {
-  if ((event.target as HTMLElement).tagName?.toLowerCase() === "input") return;
+const paste = async (event: Event | ClipboardEvent) => {
+  if (
+    (event.target as HTMLElement).tagName?.toLowerCase() === "input" ||
+    (event.target as HTMLElement).tagName?.toLowerCase() === "textarea"
+  ) {
+    return;
+  }
 
-  // TODO router location should it be
+  // 1. Check OS clipboard for screenshots/images
+  const clipboardEvent = event as ClipboardEvent;
+  if (clipboardEvent.clipboardData && clipboardEvent.clipboardData.items) {
+    const cbItems = clipboardEvent.clipboardData.items;
+    const filesToUpload: File[] = [];
+
+    for (let i = 0; i < cbItems.length; i++) {
+      const item = cbItems[i];
+      if (item.kind === "file") {
+        const file = item.getAsFile();
+        if (file) {
+          let fileName = file.name;
+          if (!fileName || fileName === "image.png" || fileName === "blob") {
+            const ext = file.type.split("/")[1] || "png";
+            fileName = `Screenshot_${dayjs().format("YYYY-MM-DD_HH-mm-ss")}.${ext}`;
+          }
+          const namedFile = new File([file], fileName, { type: file.type });
+          filesToUpload.push(namedFile);
+        }
+      }
+    }
+
+    if (filesToUpload.length > 0 && authStore.user?.perm.create) {
+      event.preventDefault();
+      await handleFiles(filesToUpload);
+      return;
+    }
+  }
+
+  // 2. Handle internal FileBrowser clipboard paste
   const items: any[] = [];
 
   for (const item of clipboardStore.items) {

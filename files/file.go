@@ -502,6 +502,9 @@ func (i *FileInfo) readListing(checker rules.Checker, readHeader bool, calcImgRe
 
 	for _, f := range dir {
 		name := f.Name()
+		if name == ".filebrowser_trash" {
+			continue
+		}
 		fPath := path.Join(i.Path, name)
 
 		if !checker.Check(fPath) {

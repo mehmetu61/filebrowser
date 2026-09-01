@@ -32,3 +32,17 @@ export function compressItems(
     }),
   });
 }
+
+export interface ArchiveEntry {
+  name: string;
+  path: string;
+  size: number;
+  compressedSize: number;
+  isDir: boolean;
+  modified: string;
+}
+
+export function listArchiveEntries(path: string) {
+  const cleaned = cleanPath(path);
+  return fetchJSON<ArchiveEntry[]>(`/api/archive/list?path=${encodeURIComponent(cleaned)}`);
+}

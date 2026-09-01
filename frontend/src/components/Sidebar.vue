@@ -15,6 +15,15 @@
         <i class="material-icons">folder</i>
         <span>{{ $t("sidebar.myFiles") }}</span>
       </button>
+      <button
+        class="action"
+        @click="toTrash"
+        :aria-label="$t('sidebar.trash') || 'Papierkorb'"
+        :title="$t('sidebar.trash') || 'Papierkorb'"
+      >
+        <i class="material-icons">delete_outline</i>
+        <span>{{ $t("sidebar.trash") || "Papierkorb" }}</span>
+      </button>
 
       <div v-if="favoritesStore.favorites.length > 0" class="favorites-section">
         <div class="sidebar-heading">⭐ Favorites</div>
@@ -221,6 +230,10 @@ export default {
     },
     toRoot() {
       this.$router.push({ path: "/files" });
+      this.closeHovers();
+    },
+    toTrash() {
+      this.$router.push({ path: "/trash" });
       this.closeHovers();
     },
     toAccountSettings() {
