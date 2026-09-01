@@ -3,8 +3,10 @@ package fbhttp
 import (
 	"crypto/subtle"
 	"errors"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -80,13 +82,15 @@ var withHashFile = func(fn handleFunc) handleFunc {
 			Fs:      d.user.Fs,
 			Path:    filePath,
 			Modify:  d.user.Perm.Modify,
-			Expand:  true,
+			Expand:  !link.UploadOnly,
 			Checker: d,
 			Token:   link.Token,
 		})
 		if err != nil {
 			return errToStatus(err), err
 		}
+
+		file.UploadOnly = link.UploadOnly
 
 		if file.IsDir {
 			// extract name from the last directory in the path
@@ -120,8 +124,10 @@ var publicShareHandler = withHashFile(func(w http.ResponseWriter, r *http.Reques
 	file := d.raw.(*files.FileInfo)
 
 	if file.IsDir {
-		file.Sorting = files.Sorting{By: "name", Asc: false}
-		file.ApplySort()
+		if !file.UploadOnly {
+			file.Sorting = files.Sorting{By: "name", Asc: false}
+			file.ApplySort()
+		}
 		return renderJSON(w, r, file)
 	}
 
@@ -130,11 +136,61 @@ var publicShareHandler = withHashFile(func(w http.ResponseWriter, r *http.Reques
 
 var publicDlHandler = withHashFile(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
 	file := d.raw.(*files.FileInfo)
+	if file.UploadOnly {
+		return http.StatusForbidden, nil
+	}
+
 	if !file.IsDir {
 		return rawFileHandler(w, r, file)
 	}
 
 	return rawDirHandler(w, r, d, file)
+})
+
+var publicUploadHandler = withHashFile(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+	file := d.raw.(*files.FileInfo)
+	if !file.IsDir {
+		return http.StatusBadRequest, errors.New("cannot upload into a file")
+	}
+
+	mr, err := r.MultipartReader()
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+
+	for {
+		part, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return http.StatusBadRequest, err
+		}
+
+		fileName := part.FileName()
+		if fileName == "" {
+			part.Close()
+			continue
+		}
+		fileName = filepath.Base(fileName)
+		dstPath := path.Join(file.Path, fileName)
+
+		dst, err := d.user.Fs.OpenFile(dstPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		if err != nil {
+			part.Close()
+			return http.StatusInternalServerError, err
+		}
+
+		if _, err := io.Copy(dst, part); err != nil {
+			dst.Close()
+			part.Close()
+			return http.StatusInternalServerError, err
+		}
+		dst.Close()
+		part.Close()
+	}
+
+	return http.StatusOK, nil
 })
 
 func authenticateShareRequest(r *http.Request, l *share.Link) (int, error) {

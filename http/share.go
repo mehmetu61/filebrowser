@@ -29,6 +29,7 @@ type shareResponse struct {
 	UserID      uint   `json:"userID"`
 	Expire      int64  `json:"expire"`
 	HasPassword bool   `json:"hasPassword"`
+	UploadOnly  bool   `json:"uploadOnly"`
 }
 
 func toShareResponse(l *share.Link) *shareResponse {
@@ -38,6 +39,7 @@ func toShareResponse(l *share.Link) *shareResponse {
 		UserID:      l.UserID,
 		Expire:      l.Expire,
 		HasPassword: l.PasswordHash != "",
+		UploadOnly:  l.UploadOnly,
 	}
 }
 
@@ -228,6 +230,7 @@ var sharePostHandler = withPermShare(func(w http.ResponseWriter, r *http.Request
 		UserID:       d.user.ID,
 		PasswordHash: string(hash),
 		Token:        token,
+		UploadOnly:   body.UploadOnly,
 	}
 
 	if err := d.store.Share.Save(s); err != nil {

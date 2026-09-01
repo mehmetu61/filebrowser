@@ -154,6 +154,64 @@
         </div>
       </div>
 
+      <!-- UPLOAD-ONLY / FILE DROP VIEW -->
+      <div v-else-if="req.uploadOnly" class="share upload-only-share">
+        <div class="upload-drop-card">
+          <div class="drop-icon">
+            <i class="material-icons">cloud_upload</i>
+          </div>
+          <h2>Dateianforderung / Briefkasten</h2>
+          <p class="drop-subtitle">
+            Lade deine Dateien sicher in den Ordner <strong>{{ req.name }}</strong> hoch.<br />
+            Vorhandene Dateien bleiben geschützt und sind nicht einsehbar.
+          </p>
+
+          <div
+            class="drop-zone"
+            :class="{ 'is-dragover': isDragOver }"
+            @dragover.prevent="isDragOver = true"
+            @dragleave.prevent="isDragOver = false"
+            @drop.prevent="onDropFiles"
+            @click="triggerFileInput"
+          >
+            <input
+              type="file"
+              ref="fileInputRef"
+              multiple
+              style="display: none"
+              @change="onFileInputChange"
+            />
+            <i class="material-icons upload-cloud-icon">move_to_inbox</i>
+            <p class="drop-prompt">
+              Dateien hierher ziehen oder <span>Durchsuchen</span>
+            </p>
+            <span class="drop-hint">Mehrere Dateien gleichzeitig möglich</span>
+          </div>
+
+          <!-- Upload Status List -->
+          <div v-if="uploadedFiles.length > 0" class="upload-status-section">
+            <h3>Dateistatus ({{ uploadedFiles.length }})</h3>
+            <div class="upload-item-list">
+              <div
+                v-for="file in uploadedFiles"
+                :key="file.name + file.size"
+                class="upload-item-row"
+                :class="file.status"
+              >
+                <i class="material-icons status-icon">
+                  {{ file.status === 'success' ? 'check_circle' : file.status === 'uploading' ? 'sync' : 'error' }}
+                </i>
+                <span class="file-name">{{ file.name }}</span>
+                <span class="file-size">{{ filesize(file.size) }}</span>
+                <span class="status-text">
+                  {{ file.status === 'success' ? 'Hochgeladen' : file.status === 'uploading' ? 'Wird übertragen...' : 'Fehler' }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- FOLDER SHARE VIEW -->
       <div v-else class="share">
         <div class="share__box share__box__info">
@@ -274,6 +332,77 @@ const password = ref<string>("");
 const attemptedPasswordLogin = ref<boolean>(false);
 const hash = ref<string>("");
 const token = ref<string>("");
+
+interface UploadedFileItem {
+  name: string;
+  size: number;
+  status: "uploading" | "success" | "error";
+}
+
+const isDragOver = ref(false);
+const fileInputRef = ref<HTMLInputElement | null>(null);
+const uploadedFiles = ref<UploadedFileItem[]>([]);
+
+const triggerFileInput = () => {
+  fileInputRef.value?.click();
+};
+
+const onFileInputChange = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files.length > 0) {
+    uploadPublicFiles(target.files);
+    target.value = "";
+  }
+};
+
+const onDropFiles = (event: DragEvent) => {
+  isDragOver.value = false;
+  if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
+    uploadPublicFiles(event.dataTransfer.files);
+  }
+};
+
+const uploadPublicFiles = async (files: FileList | File[]) => {
+  for (const file of Array.from(files)) {
+    const item: UploadedFileItem = {
+      name: file.name,
+      size: file.size,
+      status: "uploading",
+    };
+    uploadedFiles.value.unshift(item);
+
+    const formData = new FormData();
+    formData.append("file", file, file.name);
+
+    try {
+      const headers: Record<string, string> = {};
+      if (password.value) {
+        headers["X-SHARE-PASSWORD"] = encodeURIComponent(password.value);
+      }
+      const tokenVal = token.value || (route.query.token as string);
+      const url = tokenVal
+        ? `/api/public/upload/${hash.value}?token=${encodeURIComponent(tokenVal)}`
+        : `/api/public/upload/${hash.value}`;
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers,
+        body: formData,
+      });
+
+      if (res.ok) {
+        item.status = "success";
+        $showSuccess(`"${file.name}" erfolgreich übertragen!`);
+      } else {
+        item.status = "error";
+        $showError(`Fehler beim Upload von "${file.name}".`);
+      }
+    } catch (err: any) {
+      item.status = "error";
+      $showError(err.message || "Upload-Fehler");
+    }
+  }
+};
 
 const $showError = inject<IToastError>("$showError")!;
 const $showSuccess = inject<IToastSuccess>("$showSuccess")!;
@@ -647,5 +776,167 @@ onBeforeUnmount(() => {
     height: calc(100vh - 9.8em);
     overflow-y: auto;
   }
+}
+
+/* Upload-Only View Styles */
+.upload-only-share {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2.5rem 1rem;
+  width: 100%;
+}
+
+.upload-drop-card {
+  max-width: 600px;
+  width: 100%;
+  background: var(--surfacePrimary, #1e293b);
+  border: 1px solid var(--borderPrimary, rgba(255, 255, 255, 0.08));
+  border-radius: 16px;
+  padding: 2.5rem 2rem;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.drop-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 1.2rem;
+  border-radius: 50%;
+  background: rgba(33, 150, 243, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary, #2196f3);
+}
+
+.drop-icon i {
+  font-size: 2.4rem;
+}
+
+.drop-subtitle {
+  color: var(--textSecondary, #94a3b8);
+  font-size: 0.95rem;
+  margin-bottom: 2rem;
+  line-height: 1.5;
+}
+
+.drop-zone {
+  border: 2px dashed rgba(33, 150, 243, 0.4);
+  border-radius: 12px;
+  padding: 2.5rem 1.5rem;
+  background: rgba(33, 150, 243, 0.03);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.drop-zone:hover,
+.drop-zone.is-dragover {
+  border-color: var(--primary, #2196f3);
+  background: rgba(33, 150, 243, 0.1);
+  transform: scale(1.01);
+}
+
+.upload-cloud-icon {
+  font-size: 3rem;
+  color: var(--primary, #2196f3);
+  opacity: 0.9;
+}
+
+.drop-prompt {
+  font-size: 1.05rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.drop-prompt span {
+  color: var(--primary, #2196f3);
+  text-decoration: underline;
+}
+
+.drop-hint {
+  font-size: 0.82rem;
+  opacity: 0.6;
+}
+
+.upload-status-section {
+  margin-top: 2rem;
+  text-align: left;
+}
+
+.upload-status-section h3 {
+  font-size: 1rem;
+  margin-bottom: 0.8rem;
+  opacity: 0.9;
+}
+
+.upload-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.upload-item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.88rem;
+}
+
+.upload-item-row.success {
+  border-left: 3px solid #22c55e;
+}
+
+.upload-item-row.success .status-icon {
+  color: #22c55e;
+}
+
+.upload-item-row.uploading {
+  border-left: 3px solid #3b82f6;
+}
+
+.upload-item-row.uploading .status-icon {
+  color: #3b82f6;
+  animation: spin 1.2s linear infinite;
+}
+
+.upload-item-row.error {
+  border-left: 3px solid #ef4444;
+}
+
+.upload-item-row.error .status-icon {
+  color: #ef4444;
+}
+
+.file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-size {
+  opacity: 0.7;
+  font-size: 0.8rem;
+}
+
+.status-text {
+  font-size: 0.78rem;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>

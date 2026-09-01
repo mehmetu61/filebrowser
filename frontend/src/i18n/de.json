@@ -297,7 +297,8 @@
     "preview": "Vorschau",
     "settings": "Einstellungen",
     "signup": "Registrieren",
-    "siteSettings": "Website-Einstellungen"
+    "siteSettings": "Website-Einstellungen",
+    "trash": "Papierkorb"
   },
   "success": {
     "linkCopied": "Link kopiert!"

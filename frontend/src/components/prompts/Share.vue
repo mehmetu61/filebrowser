@@ -16,7 +16,15 @@
           </tr>
 
           <tr v-for="link in links" :key="link.hash">
-            <td>{{ link.hash }}</td>
+            <td>
+              {{ link.hash }}
+              <span
+                v-if="link.uploadOnly"
+                style="display: inline-block; background: rgba(33, 150, 243, 0.15); color: #2196f3; font-size: 0.72em; padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: 600;"
+              >
+                📬 Upload-Only
+              </span>
+            </td>
             <td>
               <template v-if="link.expire !== 0">{{
                 humanTime(link.expire)
@@ -38,7 +46,7 @@
                 class="action"
                 :aria-label="$t('buttons.copyDownloadLinkToClipboard')"
                 :title="$t('buttons.copyDownloadLinkToClipboard')"
-                :disabled="!!link.hasPassword"
+                :disabled="!!link.hasPassword || link.uploadOnly"
                 @click="copyToClipboard(buildDownloadLink(link))"
               >
                 <i class="material-icons">content_paste_go</i>
@@ -114,6 +122,16 @@
           v-model.trim="password"
           tabindex="3"
         />
+
+        <div style="margin-top: 1.2em; padding: 0.6em 0.8em; background: rgba(255, 255, 255, 0.05); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08);">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9em; font-weight: 500;">
+            <input type="checkbox" v-model="uploadOnly" tabindex="4" style="cursor: pointer;" />
+            <span>📬 Upload-Only / Briefkasten (Dateianforderung)</span>
+          </label>
+          <p style="font-size: 0.78em; opacity: 0.75; margin: 4px 0 0 24px; line-height: 1.3;">
+            Gäste können Dateien hochladen, haben aber keinen Zugriff auf existierende Dateien im Ordner.
+          </p>
+        </div>
       </div>
 
       <div class="card-action">
@@ -158,6 +176,7 @@ export default {
       links: [],
       clip: null,
       password: "",
+      uploadOnly: false,
       listing: true,
     };
   },
@@ -220,18 +239,14 @@ export default {
     },
     submit: async function () {
       try {
-        let res = null;
-
-        if (!this.time) {
-          res = await api.share.create(this.url, this.password);
-        } else {
-          res = await api.share.create(
-            this.url,
-            this.password,
-            this.time,
-            this.unit
-          );
-        }
+        const expiresStr = this.time ? this.time.toString() : "";
+        const res = await api.share.create(
+          this.url,
+          this.password,
+          expiresStr,
+          this.unit,
+          this.uploadOnly
+        );
 
         this.links.push(res);
         this.sort();
@@ -239,6 +254,7 @@ export default {
         this.time = 0;
         this.unit = "hours";
         this.password = "";
+        this.uploadOnly = false;
 
         this.listing = true;
       } catch (e) {

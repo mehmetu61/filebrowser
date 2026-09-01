@@ -274,10 +274,7 @@ export default {
 
 <style scoped>
 .favorites-section {
-  margin: 0.5em 0;
-  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
-  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
-  padding: 0.4em 0;
+  padding: 0.2em 0 0.4em 0;
 }
 
 .sidebar-heading {

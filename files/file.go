@@ -51,6 +51,7 @@ type FileInfo struct {
 	Token      string            `json:"token,omitempty"`
 	currentDir []os.FileInfo     `json:"-"`
 	Resolution *ImageResolution  `json:"resolution,omitempty"`
+	UploadOnly bool              `json:"uploadOnly,omitempty"`
 }
 
 // FileOptions are the options when getting a file info.

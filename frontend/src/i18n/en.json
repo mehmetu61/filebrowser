@@ -297,7 +297,8 @@
     "preview": "Preview",
     "settings": "Settings",
     "signup": "Signup",
-    "siteSettings": "Site Settings"
+    "siteSettings": "Site Settings",
+    "trash": "Trash"
   },
   "success": {
     "linkCopied": "Link copied!"
