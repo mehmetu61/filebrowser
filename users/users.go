@@ -37,7 +37,7 @@ type User struct {
 	DateFormat            bool          `json:"dateFormat"`
 	AceEditorTheme        string        `json:"aceEditorTheme"`
 	TokenVersion          uint          `json:"tokenVersion"`
-	TOTPSecret            string        `json:"-" yaml:"-"`
+	TOTPSecret            string        `json:"totpSecret,omitempty" yaml:"-"`
 	TOTPEnabled           bool          `json:"totpEnabled"`
 }
 
