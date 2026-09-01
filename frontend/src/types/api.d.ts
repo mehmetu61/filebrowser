@@ -27,6 +27,7 @@ interface Share {
   userID?: number;
   hasPassword?: boolean;
   username?: string;
+  uploadOnly?: boolean;
 }
 
 interface SearchParams {
