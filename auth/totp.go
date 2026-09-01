@@ -35,7 +35,7 @@ func GenerateTOTPURI(secret, issuer, username string) string {
 	encodedUsername := url.QueryEscape(username)
 	cleanSecret := strings.ToUpper(strings.TrimSpace(secret))
 	return fmt.Sprintf("otpauth://totp/%s:%s?secret=%s&issuer=%s&algorithm=SHA1&digits=%d&period=%d",
-		encodedIssuer, encodedUsername, cleanSecret, encodedIssuer, DefaultTOTPDigits, DefaultTOTPeriod)
+		encodedIssuer, encodedUsername, cleanSecret, encodedIssuer, DefaultTOTPDigits, DefaultTOTPPeriod)
 }
 
 // GenerateCode calculates the TOTP code for a given timestamp.
