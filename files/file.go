@@ -219,15 +219,113 @@ func (i *FileInfo) RealPath() string {
 	return i.Path
 }
 
+func isKnownTextExtension(ext, name string) bool {
+	switch ext {
+	case ".json", ".json5", ".jsonc", ".jsonl", ".geojson",
+		".php", ".phtml", ".php3", ".php4", ".php5", ".php7", ".phps",
+		".html", ".htm", ".xhtml", ".vue", ".svelte", ".jsx", ".tsx",
+		".js", ".mjs", ".cjs", ".ts", ".mts", ".cts",
+		".css", ".scss", ".sass", ".less", ".styl",
+		".yaml", ".yml", ".toml", ".xml", ".sql", ".env", ".ini", ".conf", ".cfg", ".cnf",
+		".properties", ".prefs", ".log", ".txt", ".md", ".markdown", ".rst", ".tex",
+		".py", ".pyw", ".go", ".rs", ".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hxx",
+		".java", ".kt", ".kts", ".cs", ".swift", ".rb", ".lua", ".sh", ".bash", ".zsh",
+		".fish", ".bat", ".cmd", ".ps1", ".pl", ".pm", ".r", ".dart", ".scala", ".groovy",
+		".erl", ".ex", ".exs", ".hs", ".clj", ".nim", ".v", ".zig", ".csv", ".tsv",
+		".graphql", ".proto", ".diff", ".patch", ".dockerfile", ".makefile", ".lock":
+		return true
+	}
+	switch name {
+	case "dockerfile", "makefile", "rakefile", "gemfile", "procfile", "vagrantfile", "caddyfile",
+		".gitignore", ".gitattributes", ".dockerignore", ".editorconfig", ".npmrc", ".nvmrc", ".env":
+		return true
+	}
+	return false
+}
+
+func isKnownImageExtension(ext string) bool {
+	switch ext {
+	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico", ".bmp", ".avif",
+		".heic", ".heif", ".tiff", ".tif", ".jfif", ".apng":
+		return true
+	}
+	return false
+}
+
+func isKnownVideoExtension(ext string) bool {
+	switch ext {
+	case ".mp4", ".mkv", ".webm", ".avi", ".mov", ".wmv", ".flv", ".m4v", ".3gp", ".ogv":
+		return true
+	}
+	return false
+}
+
+func isKnownAudioExtension(ext string) bool {
+	switch ext {
+	case ".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac", ".opus", ".wma", ".mid", ".midi":
+		return true
+	}
+	return false
+}
+
 func (i *FileInfo) detectType(modify, saveContent, readHeader bool, calcImgRes bool) error {
 	if IsNamedPipe(i.Mode) {
 		i.Type = "blob"
 		return nil
 	}
-	// failing to detect the type should not return error.
-	// imagine the situation where a file in a dir with thousands
-	// of files couldn't be opened: we'd have immediately
-	// a 500 even though it doesn't matter. So we just log it.
+
+	ext := strings.ToLower(i.Extension)
+	name := strings.ToLower(i.Name)
+
+	if isKnownImageExtension(ext) {
+		i.Type = "image"
+		if calcImgRes {
+			resolution, err := calculateImageResolution(i.Fs, i.Path)
+			if err != nil {
+				log.Printf("Error calculating image resolution: %v", err)
+			} else {
+				i.Resolution = resolution
+			}
+		}
+		return nil
+	}
+
+	if isKnownVideoExtension(ext) {
+		i.Type = "video"
+		i.detectSubtitles()
+		return nil
+	}
+
+	if isKnownAudioExtension(ext) {
+		i.Type = "audio"
+		return nil
+	}
+
+	if ext == ".pdf" {
+		i.Type = "pdf"
+		return nil
+	}
+
+	if ext == ".epub" {
+		i.Type = "epub"
+		return nil
+	}
+
+	if isKnownTextExtension(ext, name) && i.Size <= 25*1024*1024 { // Up to 25 MB for text/code
+		i.Type = "text"
+		if !modify {
+			i.Type = "textImmutable"
+		}
+		if saveContent {
+			afs := &afero.Afero{Fs: i.Fs}
+			content, err := afs.ReadFile(i.Path)
+			if err != nil {
+				return err
+			}
+			i.Content = string(content)
+		}
+		return nil
+	}
 
 	mimetype := mime.TypeByExtension(i.Extension)
 
@@ -262,7 +360,7 @@ func (i *FileInfo) detectType(modify, saveContent, readHeader bool, calcImgRes b
 	case strings.HasSuffix(mimetype, "pdf"):
 		i.Type = "pdf"
 		return nil
-	case (strings.HasPrefix(mimetype, "text") || !isBinary(buffer)) && i.Size <= 10*1024*1024: // 10 MB
+	case (strings.HasPrefix(mimetype, "text") || (len(buffer) > 0 && !isBinary(buffer))) && i.Size <= 25*1024*1024:
 		i.Type = "text"
 
 		if !modify {
